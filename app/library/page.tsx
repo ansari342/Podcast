@@ -4,9 +4,19 @@ import { TopNav } from '@/components/TopNav';
 import { joinWavChunks } from '@/lib/recorder/wav';
 
 type Track = { person: string; track: string; chunks: number; bytes: number; ext: string };
-type Session = { id: string; last: number; meta: { title?: string; startedAt?: number; durationMs?: number; people?: Record<string, string> } | null; tracks: Track[] };
+type Mark = { t: number; by: string; type?: string; label?: string };
+type Session = { id: string; last: number; meta: { title?: string; startedAt?: number; durationMs?: number; people?: Record<string, string>; markers?: Mark[]; events?: Mark[] } | null; tracks: Track[] };
 
-const LABEL: Record<string, string> = { active: 'Active video', camera_raw: 'Camera', mic_raw: 'Mic (WAV)', mic_clean: 'Mic, cleaned', screen: 'Screen' };
+const LABEL: Record<string, string> = { active: 'Active video', camera_raw: 'Camera', mic_raw: 'Mic, raw (WAV)', mic_clean: 'Mic, cleaned (WAV)', screen: 'Screen' };
+const tc = (ms: number) => { const s = Math.max(0, ms / 1000); const p = (n: number) => String(Math.floor(n)).padStart(2, '0'); return `${p(s / 3600)}:${p((s / 60) % 60)}:${p(s % 60)}.${String(Math.floor(ms % 1000)).padStart(3, '0')}`; };
+function saveText(name: string, text: string, type: string) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 30_000); }
+/** L3: markers and game/sound/debate events as CSV (timecode from the start of the recording) and JSON. */
+function exportMarks(s: Session, kind: 'csv' | 'json') {
+  const rows = [...(s.meta?.markers ?? []).map((m) => ({ ...m, type: 'marker', label: '' })), ...(s.meta?.events ?? [])].sort((a, b) => a.t - b.t);
+  const base = (s.meta?.title ?? s.id).replace(/[^\w -]+/g, '');
+  if (kind === 'json') return saveText(`${base} - markers.json`, JSON.stringify(rows, null, 2), 'application/json');
+  saveText(`${base} - markers.csv`, ['timecode,seconds,type,label,by', ...rows.map((r) => [tc(r.t), (r.t / 1000).toFixed(3), r.type, JSON.stringify(r.label ?? ''), JSON.stringify(r.by ?? '')].join(','))].join('\n'), 'text/csv');
+}
 const mb = (n: number) => (n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.round(n / 1e6)} MB`);
 const personName = (p: string) => p.replace(/-p[a-z0-9]{6,}$/, '') || p;
 
@@ -55,7 +65,7 @@ export default function Library() {
         {!data && !err && <p className="muted">Loading…</p>}
         {data?.length === 0 && <p className="muted">No recordings yet.</p>}
         {data?.map((s) => {
-          const order = (t: Track) => ['active', 'camera_raw', 'mic_raw', 'screen'].indexOf(t.track);
+          const order = (t: Track) => ['active', 'camera_raw', 'mic_clean', 'mic_raw', 'screen'].indexOf(t.track);
           const tracks = [...s.tracks].sort((a, b) => order(a) - order(b) || a.person.localeCompare(b.person));
           return (
             <section key={s.id} className="panel" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -67,6 +77,11 @@ export default function Library() {
                   ? <><span style={{ fontSize: 13 }}>Delete this episode for everyone? This can’t be undone.</span><button className="btn btn-rec" style={{ borderRadius: 8 }} onClick={() => remove(s.id)}>Delete</button><button className="btn" onClick={() => setConfirmDel(null)}>Keep</button></>
                   : <button className="btn" style={{ background: 'transparent' }} disabled={!!busy[s.id]} onClick={() => setConfirmDel(s.id)}>{busy[s.id] ?? 'Delete'}</button>}
               </div>
+              {(s.meta?.markers?.length || s.meta?.events?.length) ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+                  <span style={{ flex: 1 }}><strong>Markers and events</strong> <span className="muted">· {s.meta?.markers?.length ?? 0} markers, {s.meta?.events?.length ?? 0} events</span></span>
+                  <button className="btn" onClick={() => exportMarks(s, 'csv')}>CSV</button><button className="btn" onClick={() => exportMarks(s, 'json')}>JSON</button>
+                </div>) : null}
               {tracks.map((t) => {
                 const key = `${s.id}/${t.person}/${t.track}`;
                 return (

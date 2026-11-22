@@ -5,7 +5,7 @@ import { SharedStore, batches } from '@/lib/sync';
 
 export type Person = {
   identity: string; name: string; isLocal: boolean; joinedAt: number;
-  video?: MediaStreamTrack; audio?: MediaStreamTrack; screen?: MediaStreamTrack;
+  video?: MediaStreamTrack; audio?: MediaStreamTrack; screen?: MediaStreamTrack; quality?: string;
 };
 export type LiveEvent = { type: string; from: string; [k: string]: unknown };
 
@@ -56,7 +56,7 @@ export function useLiveRoom(session: string, identity: string, name: string, str
         for (const b of batches(store.dump())) void r!.localParticipant.publishData(enc.encode(JSON.stringify({ t: 's', e: b })), { reliable: true, destinationIdentities: [p.identity] });
       })
         .on(RoomEvent.ParticipantDisconnected, sync).on(RoomEvent.TrackSubscribed, sync).on(RoomEvent.TrackUnsubscribed, sync)
-        .on(RoomEvent.LocalTrackPublished, sync).on(RoomEvent.LocalTrackUnpublished, sync).on(RoomEvent.TrackMuted, sync).on(RoomEvent.TrackUnmuted, sync)
+        .on(RoomEvent.LocalTrackPublished, sync).on(RoomEvent.LocalTrackUnpublished, sync).on(RoomEvent.TrackMuted, sync).on(RoomEvent.TrackUnmuted, sync).on(RoomEvent.ConnectionQualityChanged, sync)
         .on(RoomEvent.Reconnected, () => { setStatus('live'); for (const b of batches(store.dump())) void r!.localParticipant.publishData(enc.encode(JSON.stringify({ t: 's', e: b })), { reliable: true }); })
         .on(RoomEvent.Reconnecting, () => setStatus('connecting'))
         .on(RoomEvent.DataReceived, (payload, p) => {
@@ -127,12 +127,13 @@ export function useLiveRoom(session: string, identity: string, name: string, str
 
   const self: Person = { identity, name, isLocal: true, joinedAt: joined.current, video: stream?.getVideoTracks()[0], audio: stream?.getAudioTracks()[0] };
   const all = room ? people : [self, ...tabs].sort((a, b) => a.joinedAt - b.joinedAt || a.identity.localeCompare(b.identity)).slice(0, 3);
-  return { room, people: all, status, store, emit, onEvent, setScreenShare, cameraTrack };
+  const startAudio = async () => { await roomRef.current?.startAudio(); };
+  return { room, people: all, status, store, emit, onEvent, setScreenShare, cameraTrack, startAudio };
 }
 
 function toPerson(p: Participant, isLocal: boolean): Person {
   const t = (s: Track.Source) => p.getTrackPublication(s)?.track?.mediaStreamTrack;
-  return { identity: p.identity, name: p.name || p.identity, isLocal, joinedAt: p.joinedAt?.getTime() ?? 0,
+  return { identity: p.identity, name: p.name || p.identity, isLocal, joinedAt: p.joinedAt?.getTime() ?? 0, quality: String(p.connectionQuality ?? ''),
     video: t(Track.Source.Camera), audio: isLocal ? undefined : t(Track.Source.Microphone), screen: t(Track.Source.ScreenShare) };
 }
 

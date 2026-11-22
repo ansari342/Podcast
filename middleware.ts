@@ -6,7 +6,7 @@ import { COOKIE, ROOM_COOKIE, authEnabled, readCookie, readRoomCookie, roomKey }
  * is enough on its own for that one room — guests never see the passcode. Room APIs re-check the room themselves.
  */
 const ROOM_PAGE = /^\/(green-room|studio)\/([a-zA-Z0-9_-]+)/;
-const ROOM_API = /^\/api\/(livekit-token|upload-url|session|topics|invite)/;
+const ROOM_API = /^\/api\/(livekit-token|upload-url|session|topics|invite|sfx)/;
 
 export async function middleware(req: NextRequest) {
   if (!authEnabled()) return NextResponse.next();
@@ -30,4 +30,4 @@ export async function middleware(req: NextRequest) {
   return NextResponse.redirect(url);
 }
 
-export const config = { matcher: ['/((?!_next/|worklets/|sets/|favicon|.*\\.(?:png|jpg|svg|webp|js|wasm|tflite)$).*)'] };
+export const config = { matcher: ['/((?!_next/|worklets/|sets/|sfx/|favicon|.*\\.(?:png|jpg|svg|webp|js|wasm|tflite|mp3)$).*)'] };

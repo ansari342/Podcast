@@ -16,8 +16,18 @@ Live: **https://theboys.space** · Branch: `build/m1` (production; every push de
 - **Library** (`/library`, `/api/library`, `/api/library/files`): lists sessions from the bucket; downloads join chunks in the browser (WAV joined properly, WebM concatenated per part).
 - **Fix this** (`src/lib/fixThis.ts`): restarts camera/mic, falls back to default devices, listens for mic signal, checks connection and free space.
 
+## Added in pass 3
+- **Sound effects** (`src/lib/sfx.ts`, `public/sfx/*.mp3`, synthesised in-house — no licensing): 8 sounds + slot 9 upload (`/api/sfx`, stored in R2 under `sfx/<room>/`). Keys 1–9; everyone hears them; mixed into the active video.
+- **Mic tracks** (S10): `mic_clean` = what the call hears (noise cancellation Off/Standard/Strong; Strong adds high-pass, compressor and a gate worklet), `mic_raw` = second capture with all processing off.
+- **Devices locked while recording** (T5); set locked while recording (S13).
+- **Screen track** (V2): the sharer records their screen as `screen` when "Screen on recording" is on.
+- **Markers** (S8: Mark button or M) and **events** (G12: game starts, sounds, debate captions) saved in `meta.json`; Library exports CSV/JSON (L3).
+- **People** (PP1–PP3, R8, T7): live status per person (upload backlog, free space, noise level, connection) and remote Fix this.
+- **Fix this** (T4) with symptoms; **mic meter** (T2); 1080p/720p and echo cancellation switches.
+- **Topics** (C2, C3): filters, upvotes, "Show on screen" puts a Tonight's debate caption on stage and in the active video.
+
 ## Verified (headless Chrome, fake devices, 3 tabs)
-Sign-in + wrong passcode; all 17 games start; Imposter roles + reveal; Fast Money muting/unmuting; auction bids/budgets; snake order; Guess the Sound hiding; Record/Pause/Stop synced across 3 tabs; each tab saved camera + mic, presser also saved active; plan sync; overlay sticker; Fix this. **Not yet verified:** the real LiveKit call between machines, R2 uploads, backgrounds and face tracking (blocked from the test sandbox).
+Sound files decode; keys play for everyone; markers sync; debate caption; mic_clean + mic_raw recorded; people status + remote Fix this; sign-in + wrong passcode; all 17 games start; Imposter roles + reveal; Fast Money muting/unmuting; auction bids/budgets; snake order; Guess the Sound hiding; Record/Pause/Stop synced across 3 tabs; each tab saved camera + mic, presser also saved active; plan sync; overlay sticker; Fix this. **Not yet verified:** the real LiveKit call between machines, R2 uploads, backgrounds and face tracking (blocked from the test sandbox).
 
 ## Env (Vercel)
 Set: `LIVEKIT_URL`, `NEXT_PUBLIC_LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `STUDIO_PASSCODE`, `AUTH_SECRET`.
@@ -26,7 +36,6 @@ R2: bucket `studio-three-recordings`, token scoped to that bucket (Object Read &
 
 ## Next up
 1. Record a 2-minute test with 2–3 people on separate machines; confirm the Library downloads play.
-2. Real sound-effect files (SB1) mixed into the active video; `mic_clean` track (S10).
 3. Server-side render that joins chunks into MP4 (R7) — the browser join is fine for WebM but large episodes are slow to download chunk by chunk.
 4. Topics ranked by channel performance (C4, needs YouTube Analytics).
 5. AI-generated overlay images instead of emoji (AO3) — swap `pickSticker`.

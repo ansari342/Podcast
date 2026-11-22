@@ -11,6 +11,8 @@ export type Scene = {
   tiles: { el: HTMLVideoElement | null; mirrored: boolean; hidden?: boolean; overlay?: Overlay; face?: FaceBox }[];
   screen?: HTMLVideoElement | null;
   board?: { title: string; big: string; lines: string[] } | null;
+  /** Lower-third caption, e.g. Tonight's debate (C3). */
+  caption?: string | null;
 };
 
 export class ActiveRecorder {
@@ -24,6 +26,12 @@ export class ActiveRecorder {
 
   constructor(private sessionId: string, private epochMs: number, private getScene: () => Scene, private onChunk: (m: ChunkMeta) => void) {
     this.canvas.width = 1920; this.canvas.height = 1080;
+  }
+
+  /** Mix a sound effect into the episode audio (SB2). */
+  mixBuffer(buf: AudioBuffer) {
+    const s = this.audio.createBufferSource(); const g = this.audio.createGain(); g.gain.value = 0.8;
+    s.buffer = buf; s.connect(g).connect(this.dest); s.start();
   }
 
   /** Keep the mix in sync with who's in the room (key = track id). */
@@ -40,7 +48,7 @@ export class ActiveRecorder {
     const stream = new MediaStream([...this.canvas.captureStream(30).getVideoTracks(), ...this.dest.stream.getAudioTracks()]);
     const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) ?? '';
     this.startMs = Date.now() - this.epochMs;
-    this.mr = new MediaRecorder(stream, { mimeType: mime || undefined, videoBitsPerSecond: 6_000_000 });
+    this.mr = new MediaRecorder(stream, { mimeType: mime || undefined, videoBitsPerSecond: 8_000_000 });
     this.mr.ondataavailable = async (e) => {
       if (!e.data.size) return;
       const meta: ChunkMeta = { track: 'active', index: this.index, startMs: this.startMs + this.index * CHUNK_MS, durationMs: CHUNK_MS, ext: mime.includes('mp4') ? 'mp4' : 'webm', bytes: e.data.size };
@@ -67,6 +75,17 @@ export class ActiveRecorder {
   }
 
   private draw() {
+    this.drawScene();
+    const cap = this.getScene().caption;
+    if (cap) {
+      const c = this.ctx; c.font = '600 40px "Space Grotesk", Inter, sans-serif'; const w = Math.min(1760, c.measureText(cap).width + 260);
+      c.fillStyle = 'rgba(14,15,18,.86)'; c.beginPath(); c.roundRect((1920 - w) / 2, 940, w, 96, 20); c.fill();
+      c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#FF8A5B'; c.font = '700 22px Inter, sans-serif'; c.fillText("TONIGHT'S DEBATE", 960, 968);
+      c.fillStyle = '#F2F2F3'; c.font = '600 34px "Space Grotesk", Inter, sans-serif'; c.fillText(cap.length > 80 ? cap.slice(0, 78) + '…' : cap, 960, 1006);
+    }
+  }
+
+  private drawScene() {
     const c = this.ctx; const W = 1920, H = 1080; const sc = this.getScene();
     c.fillStyle = '#0E0F12'; c.fillRect(0, 0, W, H);
     const tiles = sc.tiles.slice(0, 3);

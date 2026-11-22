@@ -10,16 +10,17 @@ import { useStore } from '@/lib/sync';
 import { GAMES, isPlayable, type GameId } from '@/lib/games';
 import { GameBoard, caption, hiddenForMe, mutedForMe, startGame, type GameRef } from '@/components/GameBoard';
 import { SAMPLE_PLAN, nextAfter, type PlanItem } from '@/lib/plan';
-import { SOUNDS, playSound } from '@/lib/sfx';
-import { LocalRecorder } from '@/lib/recorder/LocalRecorder';
+import { SOUNDS, playSound, preloadSounds, onSfx, type CustomSound } from '@/lib/sfx';
+import { LocalRecorder, TrackRecorder } from '@/lib/recorder/LocalRecorder';
 import { ActiveRecorder } from '@/lib/recorder/ActiveRecorder';
 import { UploadQueue } from '@/lib/recorder/uploadQueue';
 import { makeS3Send } from '@/lib/recorder/s3Send';
 import { chunkStore } from '@/lib/recorder/chunkStore';
 import { pickSticker, pickTarget, place, trackFace, type FaceBox, type Overlay } from '@/lib/overlay';
-import { fixThis, testTone, type FixStep } from '@/lib/fixThis';
+import { fixThis, testTone, SYMPTOMS, type FixStep, type Symptom } from '@/lib/fixThis';
 
 type Tab = 'games' | 'topics' | 'setup' | null;
+type Status = { up: number; done: number; freeGb: number | null; ns: string; cam: boolean; err?: string };
 type Rec = { state: 'idle' | 'countdown' | 'rec' | 'paused'; at: number; by: string; pausedAt?: number; pausedTotal: number };
 const SETS = [{ id: 'none', name: 'Off' }, { id: 'blur', name: 'Blur' }, { id: 'studio', name: 'Studio' }, { id: 'city', name: 'City' }, { id: 'library', name: 'Library' }] as const;
 const REACTIONS = ['😂', '🔥', '👏', '😮', '💀', '❤️'];
@@ -54,6 +55,10 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const game = store.get<GameRef | null>('game') ?? null;
   const boardOn = (id: GameId) => store.get<boolean>(`board.${id}`) ?? GAMES.find((g) => g.id === id)!.boardOnRecording;
   const overlays = store.under<Overlay>('ov.');
+  const customSound = store.get<CustomSound | null>('sfx.custom') ?? null;
+  const debate = store.get<string | null>('debate') ?? null;
+  const statuses = store.under<Status>('st.');
+  const fixes = store.under<FixStep[]>('fix.');
   useEffect(() => { if (sp.get('title') && !store.get('title')) store.set('title', sp.get('title')); }, [sp, store]);
 
   // ---- local UI ----
@@ -68,7 +73,10 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const [floaters, setFloaters] = useState<{ id: number; emoji: string; x: number }[]>([]);
   const [faces, setFaces] = useState<Record<string, FaceBox | null>>({});
   const [fix, setFix] = useState<FixStep[] | null>(null);
+  const [symptom, setSymptom] = useState<Symptom>('general');
+  const [sfxBusy, setSfxBusy] = useState('');
   const [upl, setUpl] = useState({ done: 0, pending: 0 });
+  const upRef = useRef(upl); upRef.current = upl;
   const [full, setFull] = useState(false);
   const [invite, setInvite] = useState('');
   useEffect(() => { fetch(`/api/invite?session=${session}`).then((r) => r.json()).then((j) => j.path && setInvite(location.origin + j.path)).catch(() => {}); }, [session]);
@@ -83,7 +91,8 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   // ---- events: reactions, sound effects, face boxes ----
   useEffect(() => onEvent((e) => {
     if (e.type === 'react') { const id = Math.random(); setFloaters((f) => [...f, { id, emoji: String(e.emoji), x: 10 + Math.random() * 80 }]); setTimeout(() => setFloaters((f) => f.filter((x) => x.id !== id)), 2600); }
-    if (e.type === 'sfx') playSound(Number(e.i));
+    if (e.type === 'sfx') void playSound(Number(e.i), store.get<CustomSound | null>('sfx.custom'));
+    if (e.type === 'fix' && e.to === me) void runFixRef.current(String(e.symptom ?? 'general') as Symptom).then((steps) => store.set(`fix.${me}`, steps));
     if (e.type === 'face') setFaces((f) => ({ ...f, [e.from]: e.box as FaceBox | null }));
   }), [onEvent]);
 
@@ -129,6 +138,7 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
       tiles: people.map((p) => ({ el: els.current.get(p.identity) ?? null, mirrored: p.isLocal, overlay: overlays[p.identity], face: faces[p.identity] ?? undefined })),
       screen: shown && screenOnRec ? screenEl.current : null,
       board: g && boardOn(g.id) ? caption(store, people) : null,
+      caption: store.get<string | null>('debate') ?? null,
     };
   };
 
@@ -141,7 +151,7 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
         uploader.current = new UploadQueue(localSess.current, makeS3Send(userId), (done, pending) => setUpl({ done, pending }));
         const r = new LocalRecorder(localSess.current, userId, rec.at, { onChunk: (m) => uploader.current?.add(m) });
         recorder.current = r;
-        void r.start(d.stream).then(() => { if (store.get<Rec>('rec')?.state === 'paused') r.pause(); });
+        void r.start(d.stream, d.rawMic).then(() => { if (store.get<Rec>('rec')?.state === 'paused') r.pause(); });
         if (rec.by === me) {
           const a = new ActiveRecorder(localSess.current, rec.at, () => sceneRef.current(), (m) => uploader.current?.add(m));
           a.setAudio(peopleRef.current.flatMap((p) => (p.isLocal ? d.stream!.getAudioTracks() : p.audio ? [p.audio] : [])));
@@ -150,17 +160,75 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
         }
         if (rec.state === 'countdown') store.set('rec', { ...rec, state: 'rec' });
       }
-      if (rec.state === 'paused') { recorder.current?.pause(); active.current?.pause(); }
-      if (rec.state === 'rec') { recorder.current?.resume(); active.current?.resume(); }
+      if (rec.state === 'paused') { recorder.current?.pause(); active.current?.pause(); screenRec.current?.pause(); }
+      if (rec.state === 'rec') { recorder.current?.resume(); active.current?.resume(); screenRec.current?.resume(); }
     }
     if (rec.state === 'idle' && running) {
       const r = recorder.current!, a = active.current; recorder.current = null; active.current = null;
       void (async () => {
         await Promise.all([r.stop(), a?.stop()]);
-        if (a) void fetch('/api/session', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionId: session, title, startedAt: rec.at, durationMs: Date.now() - rec.at - rec.pausedTotal, people: Object.fromEntries(peopleRef.current.map((p) => [p.identity, p.name])) }) }).catch(() => {});
+        if (a) void fetch('/api/session', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionId: session, title, startedAt: rec.at, durationMs: Date.now() - rec.at - rec.pausedTotal, people: Object.fromEntries(peopleRef.current.map((p) => [p.identity, p.name])), markers: markerList(), events: eventList() }) }).catch(() => {});
       })();
     }
   }, [rec.state, rec.at, now >= rec.at, d.stream]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Devices can't change mid-recording, so the recording never stops (T5).
+  useEffect(() => { d.lock(rec.state !== 'idle'); }, [rec.state]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Sound effects go into the active video (SB2).
+  useEffect(() => onSfx((b) => active.current?.mixBuffer(b)), []);
+  useEffect(() => { preloadSounds(customSound); }, [customSound?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // V2: whoever shares records their screen as its own track when "Screen on recording" is on.
+  const screenRec = useRef<TrackRecorder | null>(null);
+  const myScreen = people.find((p) => p.isLocal)?.screen;
+  useEffect(() => {
+    const want = !!myScreen && screenOnRec && !!recorder.current && (rec.state === 'rec' || rec.state === 'paused');
+    if (want && !screenRec.current) { const t = new TrackRecorder(localSess.current, rec.at, 'screen', (m) => uploader.current?.add(m)); t.start(new MediaStream([myScreen!])); screenRec.current = t; }
+    if (!want && screenRec.current) { const t = screenRec.current; screenRec.current = null; void t.stop(); }
+  }, [myScreen, screenOnRec, rec.state, now >= rec.at]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Markers (S8) and game/sound events (G12), saved with the episode for editing.
+  const elapsedNow = () => Date.now() - rec.at - rec.pausedTotal;
+  const recording = rec.state === 'rec' || rec.state === 'paused';
+  const logEvent = (type: string, label: string) => { if (recording) store.set(`ev.${Date.now()}.${me}`, { t: elapsedNow(), type, label, by: name }); };
+  const addMarker = () => { if (recording) store.set(`mk.${Date.now()}.${me}`, { t: elapsedNow(), by: name }); };
+  const markerList = () => Object.values(store.under<{ t: number; by: string }>('mk.')).filter((m) => m.t >= 0).sort((a, b) => a.t - b.t);
+  const eventList = () => Object.values(store.under<{ t: number; type: string; label: string; by: string }>('ev.')).filter((m) => m.t >= 0).sort((a, b) => a.t - b.t);
+  const markers = markerList().filter((m) => m.t <= elapsedNow());
+  const lastGame = useRef(0);
+  useEffect(() => { if (game && game.round !== lastGame.current) { lastGame.current = game.round; logEvent('game', GAMES.find((g) => g.id === game.id)?.name ?? game.id); } }, [game?.round]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const playSfx = (i: number) => { emit({ type: 'sfx', i }); logEvent('sound', i < SOUNDS.length ? SOUNDS[i].name : customSound?.name ?? 'Upload'); };
+  const uploadSound = async (f: File) => {
+    setSfxBusy('Uploading…');
+    try {
+      const r = await fetch('/api/sfx', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ room: session, type: f.type || 'audio/mpeg', bytes: f.size }) });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error);
+      const put = await fetch(j.url, { method: 'PUT', body: f, headers: { 'content-type': f.type || 'audio/mpeg' } }); if (!put.ok) throw new Error('Upload failed');
+      store.set('sfx.custom', { name: f.name.replace(/\.[^.]+$/, '').slice(0, 20), key: j.key }); setSfxBusy('');
+    } catch (e) { setSfxBusy((e as Error).message || 'Upload failed'); }
+  };
+
+  // Keys 1–9 play sounds, M drops a marker (not while typing).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement; if (el.closest('input, textarea, select, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (/^[1-9]$/.test(e.key)) { const i = Number(e.key) - 1; if (i < SOUNDS.length || customSound) playSfx(i); }
+      if (e.key === 'm' || e.key === 'M') addMarker();
+    };
+    window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
+  });
+
+  // PP1/PP2/R8: everyone shares their upload, storage and audio status for the People section.
+  useEffect(() => {
+    let last = '';
+    const tick = async () => {
+      const est = await navigator.storage?.estimate?.().catch(() => undefined);
+      const st: Status = { up: upRef.current.pending, done: upRef.current.done, freeGb: est?.quota && est.usage !== undefined ? Math.round((est.quota - est.usage) / 1e8) / 10 : null, ns: d.noise, cam: !!d.stream?.getVideoTracks()[0], err: d.error ?? undefined };
+      const j = JSON.stringify(st); if (j !== last) { last = j; store.set(`st.${me}`, st); }
+    };
+    void tick(); const t = setInterval(tick, 3000); return () => clearInterval(t);
+  }, [d.noise, d.stream, d.error, me, store]);
 
   // Keep the active mix in step with who's in the room.
   useEffect(() => { active.current?.setAudio(people.flatMap((p) => (p.isLocal ? d.stream?.getAudioTracks() ?? [] : p.audio ? [p.audio] : []))); }, [people, d.stream]);
@@ -199,7 +267,10 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const next = nextAfter(plan, nowId);
   const move = (i: number, dir: -1 | 1) => { const j = i + dir; if (j < 0 || j >= plan.length) return; const c = [...plan]; [c[i], c[j]] = [c[j], c[i]]; setPlan(c); };
   const addOverlay = (e: React.FormEvent) => { e.preventDefault(); if (!prompt.trim()) return; store.set(`ov.${pickTarget(prompt, people, me)}`, pickSticker(prompt)); setPrompt(''); setMenu(null); };
-  const runFix = async () => { setFix([{ label: 'Checking…', ok: true }]); setFix(await fixThis({ stream: d.stream, error: d.error, retry: d.retry, callStatus: live.status, reconnect: () => location.reload() })); };
+  const fixFor = (sym: Symptom) => fixThis(sym, { stream: d.stream, error: d.error, retry: d.retry, recording, muted, unmute: () => setMuted(false), callStatus: live.status, startAudio: live.startAudio,
+    setEchoCancel: d.setEchoCancel, setHd: d.setHd, speakerId: d.speakerId, reconnect: () => { if (!recording) location.reload(); } });
+  const runFixRef = useRef(fixFor); runFixRef.current = fixFor;
+  const runFix = async () => { setFix([{ label: 'Checking…', ok: true }]); setFix(await fixFor(symptom)); };
 
   const tile = (p: Person, style: React.CSSProperties) => (
     <PersonTile key={p.identity} p={p} style={style} localTrack={p.isLocal ? (processed ?? d.stream?.getVideoTracks()[0]) : undefined}
@@ -236,6 +307,7 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
         {rec.state === 'countdown' && <span style={{ fontWeight: 600 }}>Starting…</span>}
         {(rec.state === 'rec' || rec.state === 'paused') && (<>
           <span style={{ fontFamily: 'var(--font-head)', fontSize: 18, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: rec.state === 'rec' ? 'var(--rec)' : 'var(--muted)' }}>● {fmt(elapsed)}</span>
+          <button className="btn" title="Drop a marker (M)" onClick={addMarker}>Mark{markers.length ? ` · ${markers.length}` : ''}</button>
           <button className="btn" style={{ borderRadius: 999 }} onClick={rec.state === 'paused' ? resume : pause}>{rec.state === 'paused' ? 'Resume' : 'Pause'}</button>
           <button className="btn btn-rec" onClick={() => setConfirmStop(true)}>Stop</button>
         </>)}
@@ -299,6 +371,12 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
               </div>
             )}
             {countdownLeft > 0 && <div style={{ position: 'absolute', inset: 0, background: 'rgba(14,15,18,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-head)', fontSize: 120, fontWeight: 700 }}>{countdownLeft}</div>}
+            {debate && (
+              <div style={{ position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)', maxWidth: '86%', padding: '8px 18px', borderRadius: 14, background: 'rgba(14,15,18,.86)', textAlign: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--accent-text)' }}>TONIGHT’S DEBATE</div>
+                <div style={{ fontWeight: 600 }}>{debate}</div>
+                <button className="btn" aria-label="Hide debate caption" style={{ position: 'absolute', top: 4, right: 4, minHeight: 22, padding: 2, background: 'transparent' }} onClick={() => store.set('debate', null)}><Icon name="close" size={12} /></button>
+              </div>)}
             {floaters.map((f) => <span key={f.id} className="floater" style={{ left: `${f.x}%` }}>{f.emoji}</span>)}
           </div>
           {Controls}
@@ -328,11 +406,21 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
                 </div>);
             })}
 
-            {tab === 'topics' && <Topics onAdd={(t) => setPlan([...plan, { id: `t${Date.now()}`, title: t, done: false }])} />}
+            {tab === 'topics' && <Topics store={store} me={me} onAdd={(t) => setPlan([...plan, { id: `t${Date.now()}`, title: t, done: false }])} onShow={(t) => { store.set('debate', t); logEvent('debate', t); setTab(null); }} />}
 
             {tab === 'setup' && (<>
               <h3 style={{ fontSize: 16 }}>People</h3>
               <span className="muted" style={{ fontSize: 13 }}>{count} {count === 1 ? 'person' : 'people'} in the room{live.status === 'not-configured' ? ' · calls aren’t set up yet' : ''}</span>
+              {people.map((p) => { const st = statuses[p.identity]; const warn = st && (st.err || (st.freeGb !== null && st.freeGb < 5) || st.up > 10 || p.quality === 'poor' || p.quality === 'lost'); return (
+                <div key={p.identity} style={{ padding: 8, borderRadius: 10, background: 'var(--panel-2)', display: 'flex', flexDirection: 'column', gap: 2, fontSize: 13 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 4, background: warn ? 'var(--warn)' : 'var(--good)' }} />
+                    <strong style={{ flex: 1 }}>{p.isLocal ? `${p.name} (you)` : p.name}</strong>
+                    {!p.isLocal && <button className="btn" style={{ minHeight: 26, fontSize: 12 }} onClick={() => { store.set(`fix.${p.identity}`, null); emit({ type: 'fix', to: p.identity, symptom: 'general' }); }}>Fix this</button>}
+                  </div>
+                  {st ? <span className="muted">{p.quality && p.quality !== 'unknown' ? `Connection ${p.quality} · ` : ''}{st.up ? `${st.up} chunks to upload` : st.done ? 'All uploaded' : 'Nothing to upload'}{st.freeGb !== null ? ` · ${st.freeGb} GB free` : ''} · noise {st.ns}{st.err ? ` · ${st.err}` : ''}</span> : <span className="muted">Waiting for status…</span>}
+                  {fixes[p.identity] && !p.isLocal && <span style={{ color: fixes[p.identity].every((f) => f.ok) ? 'var(--good)' : 'var(--warn)' }}>{fixes[p.identity].map((f) => f.note ? `${f.label}: ${f.note}` : `${f.label} ok`).join(' · ')}</span>}
+                </div>); })}
               <div style={{ display: 'flex', gap: 8 }}>
                 <input className="input" readOnly value={invite} aria-label="Invite link" style={{ flex: 1, minWidth: 0 }} />
                 <button className="btn btn-primary" disabled={!invite} onClick={() => navigator.clipboard.writeText(invite)}>Copy</button>
@@ -355,34 +443,53 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
 
               <h3 style={{ fontSize: 16, borderTop: '1px solid var(--line)', paddingTop: 16 }}>Sound effects</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-                {SOUNDS.map((s, i) => (
-                  <button key={s} className="btn" style={{ minHeight: 64, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: 8 }} onClick={() => emit({ type: 'sfx', i })}>
-                    <span style={{ color: 'var(--accent-text)', fontWeight: 700 }}>{i + 1}</span><span style={{ fontSize: 13 }}>{s}</span>
+                {SOUNDS.map((snd, i) => (
+                  <button key={snd.id} className="btn" style={{ minHeight: 64, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: 8 }} onClick={() => playSfx(i)}>
+                    <span style={{ color: 'var(--accent-text)', fontWeight: 700 }}>{i + 1}</span><span style={{ fontSize: 13 }}>{snd.name}</span>
                   </button>))}
+                <label className="btn" style={{ minHeight: 64, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: 8, cursor: 'pointer' }}
+                  onClick={(e) => { if (customSound && !(e.target as HTMLElement).closest('[data-replace]')) { e.preventDefault(); playSfx(8); } }}>
+                  <span style={{ color: 'var(--accent-text)', fontWeight: 700 }}>9</span>
+                  <span style={{ fontSize: 13 }}>{sfxBusy || customSound?.name || 'Upload a sound'}</span>
+                  {customSound && <span data-replace className="muted" style={{ fontSize: 11, textDecoration: 'underline' }}>Replace</span>}
+                  <input type="file" accept="audio/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadSound(f); e.target.value = ''; }} />
+                </label>
               </div>
+              <span className="muted" style={{ fontSize: 12 }}>Keys 1–9 play them for everyone and into the recording. M drops a marker.</span>
 
               <h3 style={{ fontSize: 16, borderTop: '1px solid var(--line)', paddingTop: 16 }}>Set</h3>
-              <span className="muted" style={{ fontSize: 13 }}>Everyone gets the same room, each from their own spot in it.</span>
+              <span className="muted" style={{ fontSize: 13 }}>{recording ? 'Locked while recording.' : 'Everyone gets the same room, each from their own spot in it.'}</span>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
                 {SETS.map((s) => (
-                  <button key={s.id} className="btn" aria-pressed={set === s.id} disabled={live.status !== 'live' && s.id !== 'none'} onClick={() => store.set('set', s.id)}
+                  <button key={s.id} className="btn" aria-pressed={set === s.id} disabled={(live.status !== 'live' && s.id !== 'none') || recording} onClick={() => store.set('set', s.id)}
                     style={{ minHeight: 56, flexDirection: 'column', gap: 4, padding: 6, outline: set === s.id ? '2px solid var(--accent)' : 'none', backgroundImage: ['studio', 'city', 'library'].includes(s.id) ? `url(/sets/${s.id}-preview.jpg)` : undefined, backgroundSize: 'cover', textShadow: '0 1px 3px #000' }}>
                     {s.name}
                   </button>))}
               </div>
 
               <h3 style={{ fontSize: 16, borderTop: '1px solid var(--line)', paddingTop: 16 }}>Your audio and video</h3>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" checked={d.noiseCancel} onChange={(e) => d.setNoiseCancel(e.target.checked)} />Noise cancellation</label>
+              {recording && <span className="muted" style={{ fontSize: 12 }}>Devices are locked while recording so nothing interrupts it.</span>}
+              <MicMeter stream={d.stream} />
+              <label className="field">Noise cancellation
+                <select className="select" value={d.noise} disabled={recording} onChange={(e) => d.setNoise(e.target.value as typeof d.noise)}>
+                  <option value="off">Off</option><option value="standard">Standard</option><option value="strong">Strong</option>
+                </select>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" disabled={recording} checked={d.echoCancel} onChange={(e) => d.setEchoCancel(e.target.checked)} />Echo cancellation</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input type="checkbox" disabled={recording} checked={d.hd} onChange={(e) => d.setHd(e.target.checked)} />1080p camera (off = 720p)</label>
               <label className="field">Microphone
-                <select className="select" value={d.micId} onChange={(e) => d.setMicId(e.target.value)}>{d.lists.mics.map((m) => <option key={m.deviceId} value={m.deviceId}>{m.label || 'Microphone'}</option>)}</select>
+                <select className="select" disabled={recording} value={d.micId} onChange={(e) => d.setMicId(e.target.value)}>{d.lists.mics.map((m) => <option key={m.deviceId} value={m.deviceId}>{m.label || 'Microphone'}</option>)}</select>
               </label>
               <label className="field">Speakers
                 <select className="select" value={d.speakerId} onChange={(e) => d.setSpeakerId(e.target.value)}>{d.lists.speakers.map((m) => <option key={m.deviceId} value={m.deviceId}>{m.label || 'Speakers'}</option>)}</select>
               </label>
               <label className="field">Camera
-                <select className="select" value={d.camId} onChange={(e) => d.setCamId(e.target.value)}>{d.lists.cams.map((c) => <option key={c.deviceId} value={c.deviceId}>{c.label || 'Camera'}</option>)}</select>
+                <select className="select" disabled={recording} value={d.camId} onChange={(e) => d.setCamId(e.target.value)}>{d.lists.cams.map((c) => <option key={c.deviceId} value={c.deviceId}>{c.label || 'Camera'}</option>)}</select>
               </label>
               <div style={{ display: 'flex', gap: 8 }}>
+                <select className="select" aria-label="What's wrong?" value={symptom} onChange={(e) => setSymptom(e.target.value as Symptom)} style={{ flex: 1, minWidth: 0 }}>
+                  {SYMPTOMS.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+                </select>
                 <button className="btn btn-primary" onClick={runFix}>Fix this</button>
                 <button className="btn" onClick={() => testTone(d.speakerId)}>Test speakers</button>
               </div>
@@ -443,23 +550,48 @@ function ScreenView({ track, register }: { track: MediaStreamTrack; register: (e
   return <video ref={ref} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }} />;
 }
 
-/** Topics (C1–C3): today's headlines and evergreen debates; tap to add to the plan. */
-function Topics({ onAdd }: { onAdd: (t: string) => void }) {
+/** Topics (C1–C3): today's headlines and evergreen debates. Upvote, add to the plan, or put one on screen. */
+function Topics({ store, me, onAdd, onShow }: { store: import('@/lib/sync').SharedStore; me: string; onAdd: (t: string) => void; onShow: (t: string) => void }) {
   const [data, setData] = useState<{ news: { section: string; title: string; source: string; link: string }[]; debates: string[] } | null>(null);
+  const [filter, setFilter] = useState('All');
   const [added, setAdded] = useState<Set<string>>(new Set());
   useEffect(() => { fetch('/api/topics').then((r) => r.json()).then(setData).catch(() => setData({ news: [], debates: [] })); }, []);
-  const add = (t: string) => { onAdd(t); setAdded(new Set(added).add(t)); };
-  const sections = useMemo(() => [...new Set(data?.news.map((n) => n.section) ?? [])], [data]);
+  const key = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 40);
+  const votes = (t: string) => Object.keys(store.under(`up.${key(t)}.`)).length;
+  const mine = (t: string) => !!store.get(`up.${key(t)}.${me}`);
   if (!data) return <span className="muted">Loading…</span>;
-  const Item = ({ t, sub, link }: { t: string; sub?: string; link?: string }) => (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--line)' }}>
-      <div style={{ flex: 1 }}>{link ? <a href={link} target="_blank" rel="noreferrer" style={{ color: 'var(--text)', textDecoration: 'none' }}>{t}</a> : t}{sub && <div className="muted" style={{ fontSize: 12 }}>{sub}</div>}</div>
-      <button className="btn" style={{ minHeight: 32 }} disabled={added.has(t)} onClick={() => add(t)}>{added.has(t) ? 'Added' : 'Add to plan'}</button>
-    </div>);
+  const items = [...data.debates.map((t) => ({ t, tag: 'Debate', sub: '', link: '' })), ...data.news.map((n) => ({ t: n.title, tag: n.section, sub: n.source, link: n.link }))]
+    .filter((x) => filter === 'All' || x.tag === filter).sort((a, b) => votes(b.t) - votes(a.t));
+  const tags = ['All', 'Debate', ...new Set(data.news.map((n) => n.section))];
   return (<>
-    <h3 style={{ fontSize: 16 }}>Debates</h3>
-    {data.debates.map((t) => <Item key={t} t={t} />)}
-    {sections.map((s) => (<div key={s}><h3 style={{ fontSize: 16, marginTop: 16 }}>In the news · {s}</h3>
-      {data.news.filter((n) => n.section === s).map((n) => <Item key={n.link || n.title} t={n.title} sub={n.source} link={n.link} />)}</div>))}
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{tags.map((t) => <button key={t} className="btn" style={{ minHeight: 32, background: filter === t ? 'var(--accent)' : undefined, color: filter === t ? 'var(--bg)' : undefined }} onClick={() => setFilter(t)}>{t}</button>)}</div>
+    {!data.news.length && filter === 'All' && <span className="muted" style={{ fontSize: 13 }}>Headlines couldn’t load right now — showing debates.</span>}
+    {items.map((x) => (
+      <div key={x.tag + x.t} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+        <button className="btn" aria-pressed={mine(x.t)} title="Upvote" style={{ minHeight: 40, minWidth: 48, flexDirection: 'column', gap: 0, padding: 4, background: mine(x.t) ? 'var(--accent)' : undefined, color: mine(x.t) ? 'var(--bg)' : undefined }}
+          onClick={() => store.set(`up.${key(x.t)}.${me}`, mine(x.t) ? null : 1)}>▲<span style={{ fontSize: 12 }}>{votes(x.t)}</span></button>
+        <div style={{ flex: 1 }}>
+          <span className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>{x.tag.toUpperCase()}</span>
+          <div>{x.link ? <a href={x.link} target="_blank" rel="noreferrer" style={{ color: 'var(--text)', textDecoration: 'none' }}>{x.t}</a> : x.t}</div>
+          {x.sub && <div className="muted" style={{ fontSize: 12 }}>{x.sub}</div>}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <button className="btn" style={{ minHeight: 30, fontSize: 12 }} onClick={() => onShow(x.t)}>Show on screen</button>
+          <button className="btn" style={{ minHeight: 30, fontSize: 12 }} disabled={added.has(x.t)} onClick={() => { onAdd(x.t); setAdded(new Set(added).add(x.t)); }}>{added.has(x.t) ? 'Added' : 'Add to plan'}</button>
+        </div>
+      </div>))}
   </>);
+}
+
+/** Live mic level (T2). */
+function MicMeter({ stream }: { stream: MediaStream | null }) {
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const t = stream?.getAudioTracks()[0]; if (!t) return;
+    const ctx = new AudioContext(); const a = ctx.createAnalyser(); a.fftSize = 1024; ctx.createMediaStreamSource(new MediaStream([t])).connect(a);
+    const buf = new Float32Array(a.fftSize); let raf = 0;
+    const loop = () => { a.getFloatTimeDomainData(buf); let p = 0; for (const v of buf) p = Math.max(p, Math.abs(v)); if (bar.current) { bar.current.style.width = `${Math.min(100, Math.sqrt(p) * 110)}%`; bar.current.style.background = p > 0.9 ? 'var(--rec)' : 'var(--good)'; } raf = requestAnimationFrame(loop); };
+    loop(); return () => { cancelAnimationFrame(raf); void ctx.close(); };
+  }, [stream]);
+  return (<div><span className="muted" style={{ fontSize: 12 }}>Mic level</span><div style={{ height: 6, borderRadius: 3, background: 'var(--panel-2)', marginTop: 4 }}><div ref={bar} style={{ height: 6, borderRadius: 3, width: 0, transition: 'width .08s linear' }} /></div></div>);
 }

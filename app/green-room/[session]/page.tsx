@@ -17,7 +17,7 @@ export default function GreenRoom({ params }: { params: Promise<{ session: strin
   const [name, setName] = useState('');
   const [hasName, setHasName] = useState(true);
   useEffect(() => { const n = localStorage.getItem('st3-name'); setHasName(!!n); setName(n ?? ''); }, []);
-  const runFix = async () => { setFix([{ label: 'Checking…', ok: true }]); setFix(await fixThis({ stream: d.stream, error: d.error, retry: d.retry })); setChecks(await runChecks()); };
+  const runFix = async () => { setFix([{ label: 'Checking…', ok: true }]); setFix(await fixThis('general', { stream: d.stream, error: d.error, retry: d.retry, speakerId: d.speakerId })); setChecks(await runChecks()); };
 
   useEffect(() => { if (video.current && d.stream) video.current.srcObject = d.stream; }, [d.stream]);
   useEffect(() => { runChecks().then(setChecks); }, []);
