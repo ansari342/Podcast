@@ -20,6 +20,8 @@ async function writeFile(d: FileSystemDirectoryHandle, name: string, data: Blob 
   await w.close();
 }
 
+let queue: Promise<unknown> = Promise.resolve();
+
 export const chunkStore = {
   async init(m: SessionManifest) {
     await navigator.storage.persist?.();
@@ -33,7 +35,13 @@ export const chunkStore = {
       return JSON.parse(await f.text());
     } catch { return null; }
   },
-  async put(sessionId: string, meta: ChunkMeta, blob: Blob) {
+  /** Writes are serialized so camera, mic and active chunks never race on manifest.json. */
+  put(sessionId: string, meta: ChunkMeta, blob: Blob) {
+    const run = queue.then(() => this.putNow(sessionId, meta, blob));
+    queue = run.catch(() => {});
+    return run;
+  },
+  async putNow(sessionId: string, meta: ChunkMeta, blob: Blob) {
     const d = await dir(['sessions', sessionId, meta.track]);
     await writeFile(d, `${String(meta.index).padStart(6, '0')}.${meta.ext}`, blob);
     const m = await this.manifest(sessionId);

@@ -6,9 +6,18 @@ export type DeviceLists = { cams: MediaDeviceInfo[]; mics: MediaDeviceInfo[]; sp
 /** Camera/mic/speaker lists plus a live preview stream (S2, T2). */
 export function useDevices() {
   const [lists, setLists] = useState<DeviceLists>({ cams: [], mics: [], speakers: [] });
-  const [camId, setCamId] = useState<string>('');
-  const [micId, setMicId] = useState<string>('');
-  const [speakerId, setSpeakerId] = useState<string>('');
+  const saved = (k: string) => (typeof window !== 'undefined' ? localStorage.getItem(k) ?? '' : '');
+  const [camId, setCamIdRaw] = useState<string>(() => saved('st3-cam'));
+  const [micId, setMicIdRaw] = useState<string>(() => saved('st3-mic'));
+  const [speakerId, setSpeakerIdRaw] = useState<string>(() => saved('st3-spk'));
+  const [noiseCancel, setNoiseCancelRaw] = useState<boolean>(() => saved('st3-ns') !== 'off');
+  const [attempt, setAttempt] = useState(0);
+  const setCamId = (v: string) => { localStorage.setItem('st3-cam', v); setCamIdRaw(v); };
+  const setMicId = (v: string) => { localStorage.setItem('st3-mic', v); setMicIdRaw(v); };
+  const setSpeakerId = (v: string) => { localStorage.setItem('st3-spk', v); setSpeakerIdRaw(v); };
+  const setNoiseCancel = (v: boolean) => { localStorage.setItem('st3-ns', v ? 'on' : 'off'); setNoiseCancelRaw(v); };
+  /** Re-open camera + mic (used by Fix this). Pass true to fall back to the default devices. */
+  const retry = (useDefaults = false) => { if (useDefaults) { setCamId(''); setMicId(''); } setAttempt((n) => n + 1); };
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,8 +35,13 @@ export function useDevices() {
     (async () => {
       try {
         active = await navigator.mediaDevices.getUserMedia({
-          video: camId ? { deviceId: { exact: camId }, width: 1920, height: 1080, frameRate: 30 } : { width: 1920, height: 1080, frameRate: 30 },
-          audio: micId ? { deviceId: { exact: micId }, echoCancellation: true, noiseSuppression: true, autoGainControl: false, sampleRate: 48000 } : { echoCancellation: true, noiseSuppression: true, autoGainControl: false, sampleRate: 48000 },
+          video: { ...(camId ? { deviceId: { exact: camId } } : {}), width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
+          // S9: noise cancellation uses the browser's built-in suppression; the raw mic file is still recorded either way.
+          audio: { ...(micId ? { deviceId: { exact: micId } } : {}), echoCancellation: true, noiseSuppression: noiseCancel, autoGainControl: false, sampleRate: 48000 },
+        }).catch(async (e) => {
+          // A saved device that's been unplugged: fall back to defaults instead of failing.
+          if (camId || micId) return navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: noiseCancel } });
+          throw e;
         });
         setStream(active);
         setError(null);
@@ -41,7 +55,7 @@ export function useDevices() {
       navigator.mediaDevices.removeEventListener('devicechange', refresh);
       active?.getTracks().forEach((t) => t.stop());
     };
-  }, [camId, micId, refresh]);
+  }, [camId, micId, noiseCancel, attempt, refresh]);
 
-  return { lists, camId, setCamId, micId, setMicId, speakerId, setSpeakerId, stream, error };
+  return { lists, camId, setCamId, micId, setMicId, speakerId, setSpeakerId, noiseCancel, setNoiseCancel, retry, stream, error };
 }

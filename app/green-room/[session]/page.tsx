@@ -4,6 +4,7 @@ import { use, useEffect, useRef, useState } from 'react';
 import { TopNav } from '@/components/TopNav';
 import { useDevices } from '@/hooks/useDevices';
 import { runChecks, type Check } from '@/lib/checks';
+import { fixThis, testTone, type FixStep } from '@/lib/fixThis';
 
 /** Green room (brief: Screens → 2). Only mic + speaker menus are visible; everything else is under "More settings and troubleshooting". */
 export default function GreenRoom({ params }: { params: Promise<{ session: string }> }) {
@@ -12,6 +13,8 @@ export default function GreenRoom({ params }: { params: Promise<{ session: strin
   const video = useRef<HTMLVideoElement>(null);
   const [open, setOpen] = useState(false);
   const [checks, setChecks] = useState<Check[]>([]);
+  const [fix, setFix] = useState<FixStep[] | null>(null);
+  const runFix = async () => { setFix([{ label: 'Checking…', ok: true }]); setFix(await fixThis({ stream: d.stream, error: d.error, retry: d.retry })); setChecks(await runChecks()); };
 
   useEffect(() => { if (video.current && d.stream) video.current.srcObject = d.stream; }, [d.stream]);
   useEffect(() => { runChecks().then(setChecks); }, []);
@@ -23,7 +26,7 @@ export default function GreenRoom({ params }: { params: Promise<{ session: strin
       <main style={{ maxWidth: 1120, margin: '0 auto', padding: '32px 24px', display: 'flex', flexWrap: 'wrap', gap: 40 }}>
         <section style={{ flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <video ref={video} autoPlay muted playsInline style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 16, background: '#2B2F3A', transform: 'scaleX(-1)' }} />
-          {d.error && <p style={{ color: 'var(--warn)' }}>Camera or mic blocked: {d.error}</p>}
+          {d.error && <p style={{ color: 'var(--warn)' }}>Camera or mic blocked: {d.error} <button className="btn" onClick={runFix}>Fix this</button></p>}
           <button className="btn" style={{ alignSelf: 'flex-start', background: 'transparent', color: failed.length ? 'var(--warn)' : 'var(--good)' }} aria-expanded={open} onClick={() => setOpen(!open)}>
             {failed.length ? `${checks.length - failed.length} of ${checks.length} checks passed` : 'All checks passed'} <span className="muted">· {open ? 'Hide' : 'More settings and troubleshooting'}</span>
           </button>
@@ -41,7 +44,12 @@ export default function GreenRoom({ params }: { params: Promise<{ session: strin
                   {d.lists.cams.map((c) => <option key={c.deviceId} value={c.deviceId}>{c.label || 'Camera'}</option>)}
                 </select>
               </label>
-              {/* TODO(T2–T6): background, noise cancellation level, mic meter/gain, Fix this flow */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'end' }}><input type="checkbox" checked={d.noiseCancel} onChange={(e) => d.setNoiseCancel(e.target.checked)} />Noise cancellation</label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'end' }}>
+                <button className="btn btn-primary" onClick={runFix}>Fix this</button>
+                <button className="btn" onClick={() => testTone(d.speakerId)}>Test speakers</button>
+              </div>
+              {fix && <ul style={{ gridColumn: '1 / -1', margin: 0, paddingLeft: 18, fontSize: 14 }}>{fix.map((s) => <li key={s.label} style={{ color: s.ok ? 'var(--good)' : 'var(--warn)' }}>{s.label}{s.note ? ` — ${s.note}` : ''}</li>)}</ul>}
             </div>
           )}
         </section>
@@ -56,7 +64,7 @@ export default function GreenRoom({ params }: { params: Promise<{ session: strin
               {d.lists.speakers.map((s) => <option key={s.deviceId} value={s.deviceId}>{s.label || 'Speakers'}</option>)}
             </select>
           </label>
-          <Link className="btn btn-primary" style={{ minHeight: 52 }} href={`/studio/${session}?role=guest&mic=${d.micId}&cam=${d.camId}`}>Enter studio</Link>
+          <Link className="btn btn-primary" style={{ minHeight: 52 }} href={`/studio/${session}`}>Enter studio</Link>
         </aside>
       </main>
     </>

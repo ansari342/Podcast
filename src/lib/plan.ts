@@ -2,7 +2,7 @@
 export type PlanItem = { id: string; title: string; done: boolean };
 export const SAMPLE_PLAN: PlanItem[] = [
   { id: 'a', title: 'Cold open and catch-up', done: false },
-  { id: 'b', title: 'Lead story: [TOPIC]', done: false },
+  { id: 'b', title: 'Lead story', done: false },
   { id: 'c', title: 'Game: Imposter', done: false },
   { id: 'd', title: 'Debate block', done: false },
   { id: 'e', title: 'Wrap and shout-outs', done: false },
