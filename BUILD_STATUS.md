@@ -29,6 +29,14 @@ Live: **https://theboys.space** · Branch: `build/m1` (production; every push de
 ## Instinct agenda (P1)
 Instinct emails the agenda → inbound-email service (Postmark/CloudMailin) → `POST /api/agenda?token=<AGENDA_TOKEN>` → saved to R2 `agenda/latest.json`. Studio Plan shows "Agenda from <date> · Use it" and auto-applies a fresh one (≤3 days) if the plan hasn't been touched. Parser strips bullets, numbers, times, durations, greetings and signatures.
 
+## Tests (`tests/`)
+- `live-e2e.mjs` — runs against https://theboys.space with 3 headless Chromium browsers (fake camera/mic): invite links, real LiveKit call (video frames decoded, audio attached), Imposter + Fast Money over the data channel, shared set, synced Record/Pause/Stop, uploads to R2, Library listing + downloads (WebM/WAV headers), markers/events, storage meter, agenda webhook, topics, then deletes its test episode. Needs env `AUTH_SECRET` and `AGENDA_TOKEN`. Last run (2026-11-22): **27/27 passed**. Ran in a Vercel Sandbox (Ubuntu; `npx playwright install chromium && sudo npx playwright install-deps chromium`).
+- `local-three-tabs.py`, `local-guest-link.py` — Python Playwright against `next start` on :3100 with no keys (tabs sync via BroadcastChannel). Need STUDIO_PASSCODE set locally.
+
+## Review pass (2026-11-22)
+Reliability: 3 parallel uploads with backoff; Library downloads stream to disk (no multi-GB blobs in memory; WAV header written once from listed sizes); Leave confirms and stops local recorders cleanly; recorders also stop on navigation; first click/key unlocks audio (autoplay); call auto-rejoins after a full drop; if the person who pressed Record leaves, the first person in the room takes over the episode video; recorder start errors show a banner; backgrounds re-apply when the camera changes; storage-usage listing cached 10 min.
+Copy/UI: games list is a grid with "Play" and a clear "Recording shows: Game + faces / Faces only" switch; "Show screen in recording"; People rows read "Good connection · All uploaded · 12 GB free · Noise standard"; header just says Recording/Paused; green room shows "All set / N things need a look" and no nav links for guests; overlay hint fixed ("Bilal’s head"); tier list 2-player rule matches the shared board; Library labels "Episode video / Camera / Mic (raw|cleaned) / Shared screen"; favicon.
+
 ## Verified (headless Chrome, fake devices, 3 tabs)
 Sound files decode; keys play for everyone; markers sync; debate caption; mic_clean + mic_raw recorded; people status + remote Fix this; sign-in + wrong passcode; all 17 games start; Imposter roles + reveal; Fast Money muting/unmuting; auction bids/budgets; snake order; Guess the Sound hiding; Record/Pause/Stop synced across 3 tabs; each tab saved camera + mic, presser also saved active; plan sync; overlay sticker; Fix this. **Not yet verified:** the real LiveKit call between machines, R2 uploads, backgrounds and face tracking (blocked from the test sandbox).
 
