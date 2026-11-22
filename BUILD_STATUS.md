@@ -5,7 +5,7 @@ Live: **https://theboys.space** · Branch: `build/m1` (production; every push de
 **For the next agent:** read `docs/BRIEF.md`, then this file. Keep `npm run build` passing, push to `build/m1`, update this file every push.
 
 ## How it fits together
-- **Sign-in** (`middleware.ts`, `src/lib/auth.ts`, `/enter`): shared passcode (`STUDIO_PASSCODE`) + first name → HMAC-signed cookie (`AUTH_SECRET`). Off when `STUDIO_PASSCODE` is unset. Supabase was dropped: its built-in email only sends to org members and Google sign-in needed a Cloud project — a passcode is simpler for three people.
+- **Sign-in** (`middleware.ts`, `src/lib/auth.ts`, `/enter`): shared passcode (`STUDIO_PASSCODE`) + first name → HMAC-signed cookie (`AUTH_SECRET`) protects home + Library. **Invite links** (`/green-room/<room>?k=<HMAC>` from `/api/invite`) let guests into that one room with just a name — no passcode. Room APIs check `canUseRoom`. Off entirely when `STUDIO_PASSCODE` is unset. Supabase was dropped: its built-in email only sends to org members and Google sign-in needed a Cloud project — a passcode is simpler for three people.
 - **Call + sync** (`src/hooks/useLiveRoom.ts`, `src/lib/sync.ts`): LiveKit room per session. `SharedStore` is a per-key Lamport map sent over the data channel; newcomers get a full dump. Without LiveKit keys, tabs on the same computer sync via `BroadcastChannel` (use 3 tabs to test games locally).
 - **Studio** (`app/studio/[session]/page.tsx`): everything shared lives in the store — `rec`, `plan`, `now`, `set`, `screenRec`, `game`, `g.<round>.*`, `board.<gameId>`, `ov.<identity>`, `title`.
 - **Recording**: anyone presses Record → `rec = {state:'countdown', at}`; every browser starts `LocalRecorder` with epoch `at` (R6). Whoever pressed Record also runs `ActiveRecorder` (canvas composite of faces / game board / shared screen + mixed audio, R5). Local OPFS session id is `<session>~<part>`; upload key `sessions/<session>/<name-identity>/<track>/<part>-<index>.<ext>`. Leftover chunks resume uploading on next studio visit (R4).
@@ -22,10 +22,10 @@ Sign-in + wrong passcode; all 17 games start; Imposter roles + reveal; Fast Mone
 ## Env (Vercel)
 Set: `LIVEKIT_URL`, `NEXT_PUBLIC_LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `STUDIO_PASSCODE`, `AUTH_SECRET`.
 Storage cap: `STORAGE_LIMIT_GB=150` (upload route refuses new chunks past it; Library shows usage and can delete episodes).
-Missing: `S3_ENDPOINT`, `S3_REGION=auto`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` — R2 must be enabled on the Cloudflare account first. The upload route tries to set bucket CORS itself; if the R2 token can't, add a CORS rule allowing GET/PUT from https://theboys.space.
+R2: bucket `studio-three-recordings`, token scoped to that bucket (Object Read & Write), CORS allows GET/PUT/HEAD from theboys.space. All `S3_*` vars set.
 
 ## Next up
-1. Enable R2, add the S3 vars, record a 2-minute test with 2–3 people, confirm the Library downloads play.
+1. Record a 2-minute test with 2–3 people on separate machines; confirm the Library downloads play.
 2. Real sound-effect files (SB1) mixed into the active video; `mic_clean` track (S10).
 3. Server-side render that joins chunks into MP4 (R7) — the browser join is fine for WebM but large episodes are slow to download chunk by chunk.
 4. Topics ranked by channel performance (C4, needs YouTube Analytics).

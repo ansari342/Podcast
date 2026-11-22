@@ -70,6 +70,8 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const [fix, setFix] = useState<FixStep[] | null>(null);
   const [upl, setUpl] = useState({ done: 0, pending: 0 });
   const [full, setFull] = useState(false);
+  const [invite, setInvite] = useState('');
+  useEffect(() => { fetch(`/api/invite?session=${session}`).then((r) => r.json()).then((j) => j.path && setInvite(location.origin + j.path)).catch(() => {}); }, [session]);
   useEffect(() => { const f = () => setFull(true); window.addEventListener('st3-storage-full', f); return () => window.removeEventListener('st3-storage-full', f); }, []);
   const els = useRef(new Map<string, HTMLVideoElement>());
   const screenEl = useRef<HTMLVideoElement | null>(null);
@@ -332,8 +334,8 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
               <h3 style={{ fontSize: 16 }}>People</h3>
               <span className="muted" style={{ fontSize: 13 }}>{count} {count === 1 ? 'person' : 'people'} in the room{live.status === 'not-configured' ? ' · calls aren’t set up yet' : ''}</span>
               <div style={{ display: 'flex', gap: 8 }}>
-                <input className="input" readOnly value={typeof window !== 'undefined' ? `${window.location.origin}/green-room/${session}` : ''} aria-label="Invite link" style={{ flex: 1, minWidth: 0 }} />
-                <button className="btn btn-primary" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/green-room/${session}`)}>Copy</button>
+                <input className="input" readOnly value={invite} aria-label="Invite link" style={{ flex: 1, minWidth: 0 }} />
+                <button className="btn btn-primary" disabled={!invite} onClick={() => navigator.clipboard.writeText(invite)}>Copy</button>
               </div>
 
               <h3 style={{ fontSize: 16, borderTop: '1px solid var(--line)', paddingTop: 16 }}>Plan</h3>

@@ -14,6 +14,9 @@ export default function GreenRoom({ params }: { params: Promise<{ session: strin
   const [open, setOpen] = useState(false);
   const [checks, setChecks] = useState<Check[]>([]);
   const [fix, setFix] = useState<FixStep[] | null>(null);
+  const [name, setName] = useState('');
+  const [hasName, setHasName] = useState(true);
+  useEffect(() => { const n = localStorage.getItem('st3-name'); setHasName(!!n); setName(n ?? ''); }, []);
   const runFix = async () => { setFix([{ label: 'Checking…', ok: true }]); setFix(await fixThis({ stream: d.stream, error: d.error, retry: d.retry })); setChecks(await runChecks()); };
 
   useEffect(() => { if (video.current && d.stream) video.current.srcObject = d.stream; }, [d.stream]);
@@ -54,6 +57,7 @@ export default function GreenRoom({ params }: { params: Promise<{ session: strin
           )}
         </section>
         <aside style={{ flex: '1 1 320px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {!hasName && <label className="field">Your first name<input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" /></label>}
           <label className="field">Microphone
             <select className="select" value={d.micId} onChange={(e) => d.setMicId(e.target.value)}>
               {d.lists.mics.map((m) => <option key={m.deviceId} value={m.deviceId}>{m.label || 'Microphone'}</option>)}
@@ -64,7 +68,7 @@ export default function GreenRoom({ params }: { params: Promise<{ session: strin
               {d.lists.speakers.map((s) => <option key={s.deviceId} value={s.deviceId}>{s.label || 'Speakers'}</option>)}
             </select>
           </label>
-          <Link className="btn btn-primary" style={{ minHeight: 52 }} href={`/studio/${session}`}>Enter studio</Link>
+          <Link className="btn btn-primary" style={{ minHeight: 52, pointerEvents: !hasName && !name.trim() ? 'none' : undefined, opacity: !hasName && !name.trim() ? 0.5 : 1 }} href={`/studio/${session}`} onClick={() => { if (name.trim()) localStorage.setItem('st3-name', name.trim()); }}>Enter studio</Link>
         </aside>
       </main>
     </>

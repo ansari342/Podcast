@@ -4,6 +4,8 @@
  * If STUDIO_PASSCODE isn't set the site is open (local dev).
  */
 export const COOKIE = 'st3';
+/** Invite-link pass: lets a guest into one room (and its APIs) without the passcode. */
+export const ROOM_COOKIE = 'st3r';
 const enc = new TextEncoder();
 const b64 = (buf: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
@@ -40,4 +42,20 @@ export function cookieFrom(req: Request) {
 export async function whoami(req: Request) {
   if (!authEnabled()) return 'dev';
   return readCookie(cookieFrom(req));
+}
+
+/** Signature that makes an invite link valid: /green-room/<session>?k=<roomKey(session)>. */
+export const roomKey = async (session: string) => (await hmac('room:' + session)).slice(0, 16);
+export async function readRoomCookie(v: string | undefined | null): Promise<string | null> {
+  if (!v) return null; const [session, k] = v.split('.');
+  return session && k && (await roomKey(session)) === k ? session : null;
+}
+function roomCookieFrom(req: Request) {
+  const m = (req.headers.get('cookie') || '').match(new RegExp(`(?:^|; )${ROOM_COOKIE}=([^;]+)`));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+/** For room APIs: the signed-in name, 'guest' for someone holding this room's invite link, or null. */
+export async function canUseRoom(req: Request, room: string): Promise<string | null> {
+  const who = await whoami(req); if (who) return who;
+  return (await readRoomCookie(roomCookieFrom(req))) === room ? 'guest' : null;
 }
