@@ -9,7 +9,14 @@ export async function runChecks(): Promise<Check[]> {
   const hasOpfs = !!navigator.storage?.getDirectory;
   let free = 0;
   try { const est = await navigator.storage.estimate(); free = ((est.quota ?? 0) - (est.usage ?? 0)) / 1e9; } catch { /* ignore */ }
-  checks.push({ label: 'Free space for recording', value: `${free.toFixed(0)} GB`, ok: hasOpfs && free >= 20, note: hasOpfs ? `About ${Math.floor(free / 7)} h at 1080p` : 'Browser storage unavailable' });
+  // Chrome only lets a site use part of the disk (much less in Incognito), so this is the site's allowance, not disk free.
+  // Each browser stores only its own tracks: camera ~8 Mbps + 24-bit/48 kHz WAV ≈ 4.2 GB/h. Whoever presses Record
+  // also makes the episode video (another ~3.6 GB/h). Uploaded chunks are deleted, so this only fills if uploads stall.
+  const hours = free / 4.2, hoursIfRecorder = free / 7.8;
+  checks.push({
+    label: 'Space this browser can use for recording', value: `${free.toFixed(0)} GB`, ok: hasOpfs && hours >= 2,
+    note: hasOpfs ? `About ${hours.toFixed(1)} h (${hoursIfRecorder.toFixed(1)} h if you press Record) · cleared as it uploads` : 'Browser storage unavailable',
+  });
   const conn = (navigator as Navigator & { connection?: { downlink?: number; rtt?: number } }).connection;
   if (conn?.downlink) checks.push({ label: 'Download speed', value: `${conn.downlink} Mbps`, ok: conn.downlink >= 5 });
   if (conn?.rtt !== undefined) checks.push({ label: 'Connection delay', value: `${conn.rtt} ms`, ok: conn.rtt < 200 });

@@ -18,6 +18,7 @@ import { makeS3Send } from '@/lib/recorder/s3Send';
 import { chunkStore } from '@/lib/recorder/chunkStore';
 import { pickSticker, pickTarget, place, trackFace, type FaceBox, type Overlay } from '@/lib/overlay';
 import { fixThis, testTone, SYMPTOMS, type FixStep, type Symptom } from '@/lib/fixThis';
+import { runChecks, type Check } from '@/lib/checks';
 
 type Tab = 'games' | 'topics' | 'setup' | null;
 type Status = { up: number; done: number; freeGb: number | null; ns: string; cam: boolean; err?: string };
@@ -300,7 +301,10 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const fixFor = (sym: Symptom) => fixThis(sym, { stream: d.stream, error: d.error, retry: d.retry, recording, muted, unmute: () => setMuted(false), callStatus: live.status, startAudio: live.startAudio,
     setEchoCancel: d.setEchoCancel, setHd: d.setHd, speakerId: d.speakerId, reconnect: () => { if (!recording) location.reload(); } });
   const runFixRef = useRef(fixFor); runFixRef.current = fixFor;
-  const runFix = async () => { setFix([{ label: 'Checking…', ok: true }]); setFix(await fixFor(symptom)); };
+  // T1: same checks as the green room, kept fresh while the Setup tab is open.
+  const [checks, setChecks] = useState<Check[]>([]);
+  useEffect(() => { if (tab !== 'setup') return; void runChecks().then(setChecks); const t = setInterval(() => void runChecks().then(setChecks), 30_000); return () => clearInterval(t); }, [tab]);
+  const runFix = async () => { setFix([{ label: 'Checking…', ok: true }]); setFix(await fixFor(symptom)); setChecks(await runChecks()); };
 
   const tile = (p: Person, style: React.CSSProperties) => (
     <PersonTile key={p.identity} p={p} style={style} localTrack={p.isLocal ? (processed ?? d.stream?.getVideoTracks()[0]) : undefined}
@@ -547,6 +551,19 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
                 <button className="btn" onClick={() => testTone(d.speakerId)}>Test speakers</button>
               </div>
               {fix && <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14 }}>{fix.map((s) => <li key={s.label} style={{ color: s.ok ? 'var(--good)' : 'var(--warn)' }}>{s.label}{s.note ? ` — ${s.note}` : ''}</li>)}</ul>}
+              <details open={checks.some((c) => !c.ok)}>
+                <summary style={{ cursor: 'pointer', fontSize: 14, color: checks.some((c) => !c.ok) ? 'var(--warn)' : 'var(--good)' }}>
+                  Troubleshooting · {checks.length ? (checks.every((c) => c.ok) ? 'all checks passed' : `${checks.filter((c) => c.ok).length} of ${checks.length} checks passed`) : 'checking…'}
+                </summary>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginTop: 8 }}>
+                  {checks.map((c) => (
+                    <div key={c.label}>
+                      <div className="muted" style={{ fontSize: 12 }}>{c.label}</div>
+                      <div style={{ fontWeight: 600 }}>{c.value}</div>
+                      {c.note && <div style={{ fontSize: 12, color: c.ok ? 'var(--good)' : 'var(--warn)' }}>{c.note}</div>}
+                    </div>))}
+                </div>
+              </details>
             </>)}
           </aside>
         )}
