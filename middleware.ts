@@ -6,12 +6,13 @@ import { COOKIE, ROOM_COOKIE, authEnabled, readCookie, readRoomCookie, roomKey }
  * is enough on its own for that one room — guests never see the passcode. Room APIs re-check the room themselves.
  */
 const ROOM_PAGE = /^\/(green-room|studio)\/([a-zA-Z0-9_-]+)/;
-const ROOM_API = /^\/api\/(livekit-token|upload-url|session|topics|invite|sfx)/;
+const ROOM_API = /^\/api\/(livekit-token|upload-url|session|topics|invite|sfx|agenda)/;
 
 export async function middleware(req: NextRequest) {
   if (!authEnabled()) return NextResponse.next();
   const { pathname, search } = req.nextUrl;
   if (pathname.startsWith('/enter') || pathname.startsWith('/api/enter')) return NextResponse.next();
+  if (pathname === '/api/agenda' && req.method === 'POST') return NextResponse.next(); // email webhook: checks its own token
   if (await readCookie(req.cookies.get(COOKIE)?.value)) return NextResponse.next();
 
   const room = pathname.match(ROOM_PAGE)?.[2];

@@ -75,6 +75,11 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const [fix, setFix] = useState<FixStep[] | null>(null);
   const [symptom, setSymptom] = useState<Symptom>('general');
   const [sfxBusy, setSfxBusy] = useState('');
+  const [agenda, setAgenda] = useState<{ subject: string; receivedAt: number; items: string[] } | null>(null);
+  useEffect(() => { fetch(`/api/agenda?session=${session}`).then((r) => r.json()).then((j) => setAgenda(j.agenda)).catch(() => {}); }, [session]);
+  const applyAgenda = () => { if (!agenda) return; const items = agenda.items.map((t, i) => ({ id: `a${agenda.receivedAt}-${i}`, title: t, done: false })); store.setMany({ plan: items, now: items[0]?.id ?? null }); };
+  // P1: a fresh agenda (last 3 days) becomes the plan automatically if nobody has touched the plan yet.
+  useEffect(() => { if (agenda?.items.length && Date.now() - agenda.receivedAt < 3 * 864e5 && store.get('plan') === undefined && live.status !== 'connecting') { const t = setTimeout(() => { if (store.get('plan') === undefined) applyAgenda(); }, 2500); return () => clearTimeout(t); } }, [agenda, live.status]); // eslint-disable-line react-hooks/exhaustive-deps
   const [upl, setUpl] = useState({ done: 0, pending: 0 });
   const upRef = useRef(upl); upRef.current = upl;
   const [full, setFull] = useState(false);
@@ -427,6 +432,10 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
               </div>
 
               <h3 style={{ fontSize: 16, borderTop: '1px solid var(--line)', paddingTop: 16 }}>Plan</h3>
+              {agenda && <div className="muted" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ flex: 1 }}>Agenda from {new Date(agenda.receivedAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · {agenda.items.length} items</span>
+                <button className="btn" style={{ minHeight: 28, fontSize: 12 }} onClick={applyAgenda}>Use it</button>
+              </div>}
               <div><span style={{ color: 'var(--accent-text)', fontWeight: 600 }}>Now</span> {plan.find((p) => p.id === nowId)?.title ?? '—'} <span className="muted">· Next: {next?.title ?? 'All done'}</span></div>
               <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                 {plan.map((p, i) => (

@@ -26,6 +26,9 @@ Live: **https://theboys.space** · Branch: `build/m1` (production; every push de
 - **Fix this** (T4) with symptoms; **mic meter** (T2); 1080p/720p and echo cancellation switches.
 - **Topics** (C2, C3): filters, upvotes, "Show on screen" puts a Tonight's debate caption on stage and in the active video.
 
+## Instinct agenda (P1)
+Instinct emails the agenda → inbound-email service (Postmark/CloudMailin) → `POST /api/agenda?token=<AGENDA_TOKEN>` → saved to R2 `agenda/latest.json`. Studio Plan shows "Agenda from <date> · Use it" and auto-applies a fresh one (≤3 days) if the plan hasn't been touched. Parser strips bullets, numbers, times, durations, greetings and signatures.
+
 ## Verified (headless Chrome, fake devices, 3 tabs)
 Sound files decode; keys play for everyone; markers sync; debate caption; mic_clean + mic_raw recorded; people status + remote Fix this; sign-in + wrong passcode; all 17 games start; Imposter roles + reveal; Fast Money muting/unmuting; auction bids/budgets; snake order; Guess the Sound hiding; Record/Pause/Stop synced across 3 tabs; each tab saved camera + mic, presser also saved active; plan sync; overlay sticker; Fix this. **Not yet verified:** the real LiveKit call between machines, R2 uploads, backgrounds and face tracking (blocked from the test sandbox).
 
