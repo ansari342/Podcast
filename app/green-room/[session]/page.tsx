@@ -1,7 +1,6 @@
 'use client';
 import Link from 'next/link';
 import { use, useEffect, useRef, useState } from 'react';
-import { TopNav } from '@/components/TopNav';
 import { useDevices } from '@/hooks/useDevices';
 import { runChecks, type Check } from '@/lib/checks';
 import { fixThis, testTone, type FixStep } from '@/lib/fixThis';
@@ -25,13 +24,13 @@ export default function GreenRoom({ params }: { params: Promise<{ session: strin
 
   return (
     <>
-      <TopNav current="record" />
+      <header className="topnav"><div className="brand"><span className="brand-mark">3</span>Studio Three</div></header>
       <main style={{ maxWidth: 1120, margin: '0 auto', padding: '32px 24px', display: 'flex', flexWrap: 'wrap', gap: 40 }}>
         <section style={{ flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <video ref={video} autoPlay muted playsInline style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 16, background: '#2B2F3A', transform: 'scaleX(-1)' }} />
           {d.error && <p style={{ color: 'var(--warn)' }}>Camera or mic blocked: {d.error} <button className="btn" onClick={runFix}>Fix this</button></p>}
           <button className="btn" style={{ alignSelf: 'flex-start', background: 'transparent', color: failed.length ? 'var(--warn)' : 'var(--good)' }} aria-expanded={open} onClick={() => setOpen(!open)}>
-            {failed.length ? `${checks.length - failed.length} of ${checks.length} checks passed` : 'All checks passed'} <span className="muted">· {open ? 'Hide' : 'More settings and troubleshooting'}</span>
+            {failed.length ? `${failed.length} ${failed.length === 1 ? 'thing needs' : 'things need'} a look` : 'All set'} <span className="muted">· {open ? 'Hide' : 'Settings and troubleshooting'}</span>
           </button>
           {open && (
             <div className="panel" style={{ padding: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>

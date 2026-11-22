@@ -154,7 +154,7 @@ export function GameBoard({ store, me, people, isHost }: { store: SharedStore; m
             </div>))}
         </div>
         <Row>{all.filter((it) => !pl[slug(it)]).map((it) => <button key={it} className="btn" style={{ minHeight: 34, background: sel === it ? 'var(--accent)' : undefined, color: sel === it ? 'var(--bg)' : undefined }} onClick={() => set({ [`sel.${me}`]: sel === it ? null : it })}>{it}</button>)}</Row>
-        <span className="muted" style={{ fontSize: 13 }}>{sel ? `Tap a tier for “${sel}”` : 'Tap an item, then a tier. Anyone can move anything.'}</span>
+        <span className="muted" style={{ fontSize: 13 }}>{sel ? `Now tap a tier for “${sel}”` : 'Tap an item, then a tier.'}</span>
         <form onSubmit={(e) => { e.preventDefault(); if (text.trim()) { set({ [`add.${Date.now()}`]: text.trim() }); setText(''); } }} style={{ display: 'flex', gap: 8 }}>
           <input className="input" placeholder="Add an item" value={text} onChange={(e) => setText(e.target.value)} /><button className="btn">Add</button>
         </form>
@@ -278,8 +278,8 @@ export function GameBoard({ store, me, people, isHost }: { store: SharedStore; m
       const closest = () => { if (m.n === undefined) return null; const g2 = Object.entries(under('guess.')).map(([id, v]) => [id, Math.abs(parseFloat(String(v).replace(/[^0-9.-]/g, '')) - m.n)] as const).filter(([, d]) => !Number.isNaN(d)).sort((x2, y) => x2[1] - y[1]); return g2[0]?.[0]; };
       const w = revealed ? closest() : null;
       body = (<><Big>{m.q}</Big>{people.length > 1 && Answer({ k: "guess", placeholder: "Your guess", numeric: m.n !== undefined,})}
-        {revealed ? (<><Good>{m.a}</Good>{Answers({ k: "guess",})}{w && <span>Closest: <strong>{name(w)}</strong></span>}</>) : <button className="btn btn-primary" onClick={reveal}>Reveal answer</button>}
-        <button className="btn" onClick={again}>Next question</button></>); break;
+        {revealed && (<><Good>{m.a}</Good>{Answers({ k: "guess",})}{w && <span>Closest: <strong>{name(w)}</strong></span>}</>)}
+        <Row>{!revealed && <button className="btn btn-primary" onClick={reveal}>Reveal answer</button>}<button className="btn" onClick={again}>Next question</button></Row></>); break;
     }
     case 'thermostat': case 'thermostat-questions': {
       const holder = m.holder === me;
@@ -337,7 +337,7 @@ export function GameBoard({ store, me, people, isHost }: { store: SharedStore; m
       <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--accent-text)' }}>{game.name.toUpperCase()}</span>
       <span className="muted" style={{ fontSize: 13, maxWidth: 560 }}>{rulesFor(game, people.length)}</span>
       {body}
-      {isHost && <button className="btn" style={{ background: 'transparent' }} onClick={() => endGame(store)}>End game</button>}
+      {isHost && <button className="btn" style={{ background: 'transparent', color: 'var(--muted)', fontSize: 13, minHeight: 32 }} onClick={() => endGame(store)}>End game</button>}
     </div>
   );
 }

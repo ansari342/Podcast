@@ -31,7 +31,7 @@ export const limitBytes = () => (Number(process.env.STORAGE_LIMIT_GB) || 150) * 
 let usage: { bytes: number; at: number } | null = null;
 export async function bucketBytes(fresh = false): Promise<number> {
   const c = s3(); if (!c) return 0;
-  if (!fresh && usage && Date.now() - usage.at < 60_000) return usage.bytes;
+  if (!fresh && usage && Date.now() - usage.at < 10 * 60_000) return usage.bytes; // listing is slow on big buckets; 10-min cache + noteUpload keeps it close
   let bytes = 0; let token: string | undefined;
   do {
     const r = await c.client.send(new ListObjectsV2Command({ Bucket: c.bucket, ContinuationToken: token }));

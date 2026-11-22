@@ -10,7 +10,7 @@ import { useStore } from '@/lib/sync';
 import { GAMES, isPlayable, type GameId } from '@/lib/games';
 import { GameBoard, caption, hiddenForMe, mutedForMe, startGame, type GameRef } from '@/components/GameBoard';
 import { SAMPLE_PLAN, nextAfter, type PlanItem } from '@/lib/plan';
-import { SOUNDS, playSound, preloadSounds, onSfx, type CustomSound } from '@/lib/sfx';
+import { SOUNDS, playSound, preloadSounds, onSfx, sfxContext, type CustomSound } from '@/lib/sfx';
 import { LocalRecorder, TrackRecorder } from '@/lib/recorder/LocalRecorder';
 import { ActiveRecorder } from '@/lib/recorder/ActiveRecorder';
 import { UploadQueue } from '@/lib/recorder/uploadQueue';
@@ -74,6 +74,8 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const [faces, setFaces] = useState<Record<string, FaceBox | null>>({});
   const [fix, setFix] = useState<FixStep[] | null>(null);
   const [symptom, setSymptom] = useState<Symptom>('general');
+  const [recError, setRecError] = useState('');
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const [sfxBusy, setSfxBusy] = useState('');
   const [agenda, setAgenda] = useState<{ subject: string; receivedAt: number; items: string[] } | null>(null);
   useEffect(() => { fetch(`/api/agenda?session=${session}`).then((r) => r.json()).then((j) => setAgenda(j.agenda)).catch(() => {}); }, [session]);
@@ -116,8 +118,10 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const seat = Math.max(0, people.findIndex((p) => p.identity === me));
   const processor = useRef<import('@livekit/track-processors').BackgroundProcessorWrapper | null>(null);
   const [processed, setProcessed] = useState<MediaStreamTrack | undefined>();
+  const processedFor = useRef<unknown>(null);
   useEffect(() => {
     const track = live.cameraTrack(); if (!track) return;
+    if (processedFor.current !== track) { processor.current = null; processedFor.current = track; } // camera changed: start fresh
     (async () => {
       const tp = await import('@livekit/track-processors');
       if (!tp.supportsBackgroundProcessors()) return;
@@ -127,7 +131,7 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
       else { processor.current = tp.BackgroundProcessor(opts); await track.setProcessor(processor.current); }
       setProcessed(processor.current?.processedTrack ?? track.mediaStreamTrack);
     })().catch(() => {});
-  }, [set, seat, live.room, live.people.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [set, seat, live.room, live.people.length, d.stream]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- recording (R1–R6): every browser follows the shared `rec` state ----
   const recorder = useRef<LocalRecorder | null>(null);
@@ -155,27 +159,30 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
         localSess.current = `${session}~${part}`;
         uploader.current = new UploadQueue(localSess.current, makeS3Send(userId), (done, pending) => setUpl({ done, pending }));
         const r = new LocalRecorder(localSess.current, userId, rec.at, { onChunk: (m) => uploader.current?.add(m) });
-        recorder.current = r;
-        void r.start(d.stream, d.rawMic).then(() => { if (store.get<Rec>('rec')?.state === 'paused') r.pause(); });
-        if (rec.by === me) {
+        recorder.current = r; setRecError('');
+        void r.start(d.stream, d.rawMic).then(() => { if (store.get<Rec>('rec')?.state === 'paused') r.pause(); })
+          .catch((err) => { setRecError(`Recording couldn’t start on this computer: ${(err as Error)?.message ?? err}`); recorder.current = null; });
+      }
+      // R5: whoever pressed Record makes the episode video; if they've left, the first person in the room takes over.
+      const owner = peopleRef.current.some((p) => p.identity === rec.by) ? rec.by : peopleRef.current[0]?.identity;
+      if (owner === me && !active.current && recorder.current && d.stream) {
           const a = new ActiveRecorder(localSess.current, rec.at, () => sceneRef.current(), (m) => uploader.current?.add(m));
           a.setAudio(peopleRef.current.flatMap((p) => (p.isLocal ? d.stream!.getAudioTracks() : p.audio ? [p.audio] : [])));
-          a.start(); active.current = a;
+          try { a.start(); active.current = a; } catch (err) { setRecError(`Episode video couldn’t start: ${(err as Error).message}`); }
           void fetch('/api/session', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionId: session, title, startedAt: rec.at, people: Object.fromEntries(peopleRef.current.map((p) => [p.identity, p.name])) }) }).catch(() => {});
-        }
-        if (rec.state === 'countdown') store.set('rec', { ...rec, state: 'rec' });
       }
+      if (rec.state === 'countdown' && recorder.current) store.set('rec', { ...rec, state: 'rec' });
       if (rec.state === 'paused') { recorder.current?.pause(); active.current?.pause(); screenRec.current?.pause(); }
       if (rec.state === 'rec') { recorder.current?.resume(); active.current?.resume(); screenRec.current?.resume(); }
     }
     if (rec.state === 'idle' && running) {
-      const r = recorder.current!, a = active.current; recorder.current = null; active.current = null;
+      const r = recorder.current!, a = active.current, sr = screenRec.current; recorder.current = null; active.current = null; screenRec.current = null;
       void (async () => {
-        await Promise.all([r.stop(), a?.stop()]);
+        await Promise.allSettled([r.stop(), a?.stop(), sr?.stop()]);
         if (a) void fetch('/api/session', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionId: session, title, startedAt: rec.at, durationMs: Date.now() - rec.at - rec.pausedTotal, people: Object.fromEntries(peopleRef.current.map((p) => [p.identity, p.name])), markers: markerList(), events: eventList() }) }).catch(() => {});
       })();
     }
-  }, [rec.state, rec.at, now >= rec.at, d.stream]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rec.state, rec.at, rec.by, now >= rec.at, d.stream, people.map((p) => p.identity).join()]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Devices can't change mid-recording, so the recording never stops (T5).
   useEffect(() => { d.lock(rec.state !== 'idle'); }, [rec.state]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -251,6 +258,24 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
 
   useLeaveGuard(rec.state !== 'idle' || upl.pending > 0);
 
+  // Stop this computer's recorders cleanly (Leave, or navigating away): chunks already saved stay on disk and upload later.
+  const stopLocal = async () => {
+    const r = recorder.current, a = active.current, sr = screenRec.current; recorder.current = null; active.current = null; screenRec.current = null;
+    await Promise.allSettled([r?.stop(), a?.stop(), sr?.stop()]);
+  };
+  useEffect(() => () => { void stopLocal(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const leave = async () => {
+    if ((recording || upl.pending > 0) && !confirmLeave) { setConfirmLeave(true); return; }
+    await stopLocal(); location.href = '/';
+  };
+
+  // Browsers block sound until you click: the first click or key press anywhere turns on call audio and sound effects.
+  useEffect(() => {
+    const unlock = () => { void live.startAudio().catch(() => {}); document.querySelectorAll('audio').forEach((a) => void a.play().catch(() => {})); void sfxContext().resume().catch(() => {}); };
+    window.addEventListener('pointerdown', unlock); window.addEventListener('keydown', unlock);
+    return () => { window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock); };
+  }, [live.startAudio]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const startRecording = () => store.set('rec', { state: 'countdown', at: Date.now() + 3000, by: me, pausedTotal: 0 });
   const pause = () => store.set('rec', { ...rec, state: 'paused', pausedAt: Date.now() });
   const resume = () => store.set('rec', { ...rec, state: 'rec', pausedTotal: rec.pausedTotal + (Date.now() - (rec.pausedAt ?? Date.now())), pausedAt: undefined });
@@ -298,7 +323,7 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
           </div>)}
         {menu === 'overlay' && (
           <form onSubmit={addOverlay} className="panel" style={{ position: 'absolute', bottom: 60, left: 0, width: 380, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid var(--line)', zIndex: 6 }}>
-            <input className="input" autoFocus placeholder={`e.g. Add a crown to ${people.find((p) => !p.isLocal)?.name ?? 'my'} head`} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+            <input className="input" autoFocus placeholder={`e.g. Add a crown to ${people.find((p) => !p.isLocal) ? `${people.find((p) => !p.isLocal)!.name}’s` : 'my'} head`} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
             <button className="btn btn-primary">Add overlay</button>
             {Object.entries(overlays).map(([id, o]) => (
               <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
@@ -326,7 +351,18 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
           </div>)}
       </div>
       <div style={{ display: 'flex', flex: '1 1 0', justifyContent: 'flex-end' }}>
-        <Link className="btn" style={{ minHeight: 52 }} href="/"><Icon name="leave" />Leave</Link>
+        <div style={{ position: 'relative' }}>
+          <button className="btn" style={{ minHeight: 52 }} onClick={leave}><Icon name="leave" />Leave</button>
+          {confirmLeave && (
+            <div role="alertdialog" aria-label="Leave the studio?" className="panel" style={{ position: 'absolute', bottom: 60, right: 0, width: 300, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid var(--line)', zIndex: 5 }}>
+              <strong>{recording ? 'Leave while recording?' : 'Leave before uploads finish?'}</strong>
+              <span className="muted" style={{ fontSize: 13 }}>{recording ? 'Your recording stops here; everyone else keeps recording. ' : ''}Anything not uploaded yet finishes next time you open the studio on this computer.</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-rec" style={{ flex: 1, borderRadius: 8 }} onClick={leave}>Leave</button>
+                <button className="btn" style={{ flex: 1 }} onClick={() => setConfirmLeave(false)}>Stay</button>
+              </div>
+            </div>)}
+        </div>
       </div>
     </div>
   );
@@ -338,9 +374,10 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <header style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: '12px 24px' }}>
         <span style={{ fontFamily: 'var(--font-head)', fontWeight: 600, fontSize: 16 }}>{title}</span>
-        {(rec.state === 'rec' || rec.state === 'paused') && <span className="muted" style={{ fontSize: 13 }}>Recording {count + 1} videos{upl.pending > 3 ? ` · ${upl.pending} chunks waiting to upload` : ''}</span>}
-        {rec.state === 'idle' && upl.pending > 0 && <span style={{ fontSize: 13, color: 'var(--warn)' }}>Uploading {upl.pending} chunks — keep this tab open</span>}
-        {full && <span style={{ fontSize: 13, color: 'var(--warn)' }}>Storage limit reached — still recording on this computer; delete old episodes in the Library to upload</span>}
+        {(rec.state === 'rec' || rec.state === 'paused') && <span className="muted" style={{ fontSize: 13 }}>{rec.state === 'paused' ? 'Paused' : 'Recording'}{upl.pending > 6 ? ` · uploading ${upl.pending}` : ''}</span>}
+        {rec.state === 'idle' && upl.pending > 0 && <span style={{ fontSize: 13, color: 'var(--warn)' }}>Uploading ({upl.pending} left) — keep this tab open</span>}
+        {recError && <span style={{ fontSize: 13, color: 'var(--rec)' }}>{recError}</span>}
+        {full && <span style={{ fontSize: 13, color: 'var(--warn)' }}>Storage full — still recording on this computer. Delete old episodes in the Library to upload.</span>}
         {live.status === 'connecting' && <span className="muted" style={{ fontSize: 13 }}>Connecting…</span>}
         <span style={{ flex: 1 }} />
         <nav aria-label="Studio panels" style={{ display: 'flex', gap: 6, padding: 4, borderRadius: 14, background: 'var(--panel)' }}>
@@ -363,7 +400,7 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
                   {screenPerson && showGame && <div style={{ display: 'none' }}><ScreenView track={screenPerson.screen!} register={(el) => (screenEl.current = el)} /></div>}
                   {screenPerson && (
                     <label className="muted" style={{ position: 'absolute', top: 10, right: 12, fontSize: 12, display: 'flex', gap: 6, alignItems: 'center', background: 'rgba(14,15,18,.7)', padding: '4px 8px', borderRadius: 8 }}>
-                      <input type="checkbox" checked={screenOnRec} onChange={(e) => store.set('screenRec', e.target.checked)} />Screen on recording
+                      <input type="checkbox" checked={screenOnRec} onChange={(e) => store.set('screenRec', e.target.checked)} />Show screen in recording
                     </label>)}
                 </div>
                 <div style={{ width: '18%', minWidth: 140, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -394,22 +431,29 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
               <button className="btn" aria-label="Close panel" style={{ background: 'transparent', minHeight: 32 }} onClick={() => setTab(null)}><Icon name="close" size={16} /></button>
             </div>
 
-            {tab === 'games' && GAMES.map((g) => {
-              const ok = isPlayable(g, count);
-              return (
-                <div key={g.id} style={{ padding: 12, borderRadius: 10, background: ok ? 'var(--panel-2)' : 'transparent', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ flex: 1, fontWeight: 600, color: ok ? 'var(--text)' : '#8A8D96' }}>{g.name}</span>
-                    {ok && <button className="btn" style={{ minHeight: 32 }} onClick={() => { startGame(store, g.id, people); setTab(null); }}>{game?.id === g.id ? 'Restart' : 'Start'}</button>}
-                  </div>
-                  <span className="muted" style={{ fontSize: 13 }}>{ok ? g.line : `Needs ${g.min} players`}</span>
-                  {ok && (
-                    <label style={{ fontSize: 12, display: 'flex', gap: 6, alignItems: 'center' }} className="muted">
-                      <input type="checkbox" checked={boardOn(g.id)} onChange={(e) => store.set(`board.${g.id}`, e.target.checked)} />
-                      {boardOn(g.id) ? 'Board on recording' : 'Faces only'}
-                    </label>)}
-                </div>);
-            })}
+            {tab === 'games' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
+                {GAMES.map((g) => {
+                  const ok = isPlayable(g, count); const on = boardOn(g.id);
+                  return (
+                    <div key={g.id} style={{ padding: 12, borderRadius: 10, background: ok ? 'var(--panel-2)' : 'transparent', border: ok ? 'none' : '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ flex: 1, fontWeight: 600, color: ok ? 'var(--text)' : '#8A8D96' }}>{g.name}</span>
+                        {ok && <button className="btn btn-primary" style={{ minHeight: 32 }} onClick={() => { startGame(store, g.id, people); setTab(null); }}>{game?.id === g.id ? 'Restart' : 'Play'}</button>}
+                      </div>
+                      <span className="muted" style={{ fontSize: 13 }}>{ok ? g.line : `Needs ${g.min} players`}</span>
+                      {ok && (
+                        <div role="radiogroup" aria-label={`${g.name}: what the recording shows`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                          <span className="muted">Recording shows</span>
+                          {([true, false] as const).map((v) => (
+                            <button key={String(v)} role="radio" aria-checked={on === v} className="btn" onClick={() => store.set(`board.${g.id}`, v)}
+                              style={{ minHeight: 26, padding: '0 10px', fontSize: 12, background: on === v ? 'var(--text)' : 'transparent', color: on === v ? 'var(--bg)' : 'var(--muted)', border: '1px solid var(--line)' }}>
+                              {v ? 'Game + faces' : 'Faces only'}
+                            </button>))}
+                        </div>)}
+                    </div>);
+                })}
+              </div>)}
 
             {tab === 'topics' && <Topics store={store} me={me} onAdd={(t) => setPlan([...plan, { id: `t${Date.now()}`, title: t, done: false }])} onShow={(t) => { store.set('debate', t); logEvent('debate', t); setTab(null); }} />}
 
@@ -423,7 +467,7 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
                     <strong style={{ flex: 1 }}>{p.isLocal ? `${p.name} (you)` : p.name}</strong>
                     {!p.isLocal && <button className="btn" style={{ minHeight: 26, fontSize: 12 }} onClick={() => { store.set(`fix.${p.identity}`, null); emit({ type: 'fix', to: p.identity, symptom: 'general' }); }}>Fix this</button>}
                   </div>
-                  {st ? <span className="muted">{p.quality && p.quality !== 'unknown' ? `Connection ${p.quality} · ` : ''}{st.up ? `${st.up} chunks to upload` : st.done ? 'All uploaded' : 'Nothing to upload'}{st.freeGb !== null ? ` · ${st.freeGb} GB free` : ''} · noise {st.ns}{st.err ? ` · ${st.err}` : ''}</span> : <span className="muted">Waiting for status…</span>}
+                  {st ? <span className="muted">{[p.quality && !['unknown', ''].includes(p.quality) ? `${p.quality[0].toUpperCase()}${p.quality.slice(1)} connection` : null, st.up ? `Uploading ${st.up}` : st.done ? 'All uploaded' : null, st.freeGb !== null ? `${st.freeGb} GB free` : null, `Noise ${st.ns}`, st.err].filter(Boolean).join(' · ')}</span> : <span className="muted">Connecting…</span>}
                   {fixes[p.identity] && !p.isLocal && <span style={{ color: fixes[p.identity].every((f) => f.ok) ? 'var(--good)' : 'var(--warn)' }}>{fixes[p.identity].map((f) => f.note ? `${f.label}: ${f.note}` : `${f.label} ok`).join(' · ')}</span>}
                 </div>); })}
               <div style={{ display: 'flex', gap: 8 }}>
@@ -548,6 +592,7 @@ function PersonTile({ p, style, localTrack, hidden, mutedAudio, sinkId, overlay,
     <div style={{ position: 'relative', overflow: 'hidden', background: '#2B2F3A', ...style }}>
       <video ref={ref} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', transform: p.isLocal ? 'scaleX(-1)' : undefined, visibility: hidden ? 'hidden' : 'visible' }} />
       {hidden && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="muted">Hidden until the reveal</div>}
+      {!hidden && (!track || track.readyState === 'ended' || !track.enabled) && <div aria-hidden style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}><Icon name="cam" slash size={36} /></div>}
       {sticker}
       {!p.isLocal && <audio ref={a} autoPlay />}
     </div>

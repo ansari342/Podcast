@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Room, RoomEvent, Track, type Participant, type RemoteParticipant, type LocalVideoTrack } from 'livekit-client';
+import { DisconnectReason, Room, RoomEvent, Track, type Participant, type RemoteParticipant, type LocalVideoTrack } from 'livekit-client';
 import { SharedStore, batches } from '@/lib/sync';
 
 export type Person = {
@@ -36,6 +36,7 @@ export function useLiveRoom(session: string, identity: string, name: string, str
   const listeners = useRef(new Set<(e: LiveEvent) => void>());
   const roomRef = useRef<Room | null>(null);
   const published = useRef<MediaStream | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   // Connect once per session.
   useEffect(() => {
@@ -59,6 +60,11 @@ export function useLiveRoom(session: string, identity: string, name: string, str
         .on(RoomEvent.LocalTrackPublished, sync).on(RoomEvent.LocalTrackUnpublished, sync).on(RoomEvent.TrackMuted, sync).on(RoomEvent.TrackUnmuted, sync).on(RoomEvent.ConnectionQualityChanged, sync)
         .on(RoomEvent.Reconnected, () => { setStatus('live'); for (const b of batches(store.dump())) void r!.localParticipant.publishData(enc.encode(JSON.stringify({ t: 's', e: b })), { reliable: true }); })
         .on(RoomEvent.Reconnecting, () => setStatus('connecting'))
+        // A full drop (network change, laptop sleep): rejoin automatically. Local recording is unaffected.
+        .on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
+          if (cancelled || reason === DisconnectReason.CLIENT_INITIATED || reason === DisconnectReason.DUPLICATE_IDENTITY) return;
+          setStatus('connecting'); setRoom(null); published.current = null; setTimeout(() => setAttempt((n) => n + 1), 2000);
+        })
         .on(RoomEvent.DataReceived, (payload, p) => {
           try {
             const msg = JSON.parse(dec.decode(payload));
@@ -72,10 +78,10 @@ export function useLiveRoom(session: string, identity: string, name: string, str
       await r.connect(wss, token);
       if (cancelled) { void r.disconnect(); return; }
       setRoom(r); setStatus('live'); sync();
-    })().catch(() => setStatus('offline'));
+    })().catch(() => { if (!cancelled) { setStatus('connecting'); setTimeout(() => setAttempt((n) => n + 1), 4000); } });
     return () => { cancelled = true; store.onSend = () => {}; void r?.disconnect(); roomRef.current = null; published.current = null; setRoom(null); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, identity, !!stream, store]);
+  }, [session, identity, !!stream, store, attempt]);
 
   // (Re)publish camera + mic whenever the device stream changes.
   useEffect(() => {

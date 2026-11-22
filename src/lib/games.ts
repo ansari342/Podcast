@@ -20,7 +20,7 @@ export const GAMES: Game[] = [
   { id: 'imposter-question', code: 'G16', name: 'Imposter question', line: 'Spot who got a different question.', min: 3, boardOnRecording: true,
     rules: { 3: 'Everyone answers a question privately; the imposter got a different one. Reveal answers together, then vote.' } },
   { id: 'tier-list', code: 'G2', name: 'Tier list', line: 'Rank anything from S to F.', min: 1, boardOnRecording: true,
-    rules: { 1: 'Rank solo, explain picks.', 2: 'Each builds a list, then compare.', 3: 'One shared list; majority breaks ties.' } },
+    rules: { 1: 'Rank solo and explain your picks.', 2: 'Build one list together; argue every placement.', 3: 'One shared list; majority breaks ties.' } },
   { id: 'fast-money', code: 'G3', name: 'Fast Money, no sound', line: 'Read the asker’s lips.', min: 2, boardOnRecording: true, routing: 'mute-asker-for-guessers',
     rules: { 2: 'One asks out loud; the other can’t hear and reads lips.', 3: 'One asks out loud; the other two can’t hear and race to read lips.' } },
   { id: 'blind-ranking', code: 'G4', name: 'Blind ranking', line: 'Rank 1–5 without seeing what’s next.', min: 1, boardOnRecording: true,
@@ -32,7 +32,7 @@ export const GAMES: Game[] = [
   { id: 'most-likely-to', code: 'G6', name: 'Most Likely To', line: 'Point at who fits.', min: 3, boardOnRecording: false,
     rules: { 3: 'Everyone points at who fits the prompt.' } },
   { id: 'red-green-flag', code: 'G6b', name: 'Red Flag or Green Flag', line: 'Vote red or green.', min: 1, boardOnRecording: false,
-    rules: { 1: 'Solo verdicts.', 2: 'A split starts a 30 s debate.', 3: 'Majority wins; the odd one out defends.' } },
+    rules: { 1: 'Give your verdict.', 2: 'A split vote means a 30-second debate.', 3: 'Majority wins; the odd one out defends.' } },
   { id: 'higher-lower', code: 'G7', name: 'Higher or Lower', line: 'Guess higher or lower.', min: 1, boardOnRecording: true,
     rules: { 1: 'Keep a streak.', 2: 'Take turns, best streak wins.', 3: 'Take turns, best streak wins.' } },
   { id: 'trivia', code: 'G18', name: 'Trivia', line: 'Guess the answer, reveal when ready.', min: 1, boardOnRecording: true,
@@ -48,7 +48,7 @@ export const GAMES: Game[] = [
   { id: 'tell-me-without', code: 'G22', name: 'Tell Me Without Telling Me', line: 'Describe a word under a twist rule.', min: 2, boardOnRecording: true,
     rules: { 2: 'Describe a secret word under a twist rule; the other guesses.', 3: 'Describe it; the other two race.' } },
   { id: 'guess-the-price', code: 'G23', name: 'Guess the Price', line: 'Closest without going over wins.', min: 1, boardOnRecording: true,
-    rules: { 1: 'Get within 10%.', 2: 'Closest without going over.', 3: 'Closest without going over.' } },
+    rules: { 1: 'Try to get within 10%.', 2: 'Closest without going over wins.', 3: 'Closest without going over wins.' } },
 ];
 
 export const clampCount = (n: number) => Math.min(3, Math.max(1, n)) as 1 | 2 | 3;

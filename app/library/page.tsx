@@ -1,13 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { TopNav } from '@/components/TopNav';
-import { joinWavChunks } from '@/lib/recorder/wav';
+import { downloadJoined } from '@/lib/recorder/download';
 
 type Track = { person: string; track: string; chunks: number; bytes: number; ext: string };
 type Mark = { t: number; by: string; type?: string; label?: string };
 type Session = { id: string; last: number; meta: { title?: string; startedAt?: number; durationMs?: number; people?: Record<string, string>; markers?: Mark[]; events?: Mark[] } | null; tracks: Track[] };
 
-const LABEL: Record<string, string> = { active: 'Active video', camera_raw: 'Camera', mic_raw: 'Mic, raw (WAV)', mic_clean: 'Mic, cleaned (WAV)', screen: 'Screen' };
+const LABEL: Record<string, string> = { active: 'Episode video', camera_raw: 'Camera', mic_raw: 'Mic (raw)', mic_clean: 'Mic (cleaned)', screen: 'Shared screen' };
 const tc = (ms: number) => { const s = Math.max(0, ms / 1000); const p = (n: number) => String(Math.floor(n)).padStart(2, '0'); return `${p(s / 3600)}:${p((s / 60) % 60)}:${p(s % 60)}.${String(Math.floor(ms % 1000)).padStart(3, '0')}`; };
 function saveText(name: string, text: string, type: string) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 30_000); }
 /** L3: markers and game/sound/debate events as CSV (timecode from the start of the recording) and JSON. */
@@ -35,19 +35,13 @@ export default function Library() {
   const download = async (s: Session, t: Track) => {
     const key = `${s.id}/${t.person}/${t.track}`;
     const q = new URLSearchParams({ session: s.id, person: t.person, track: t.track });
-    const { parts } = (await (await fetch(`/api/library/files?${q}`)).json()) as { parts: { part: string; urls: string[] }[] };
-    let pi = 0;
-    for (const part of parts) {
-      pi++;
-      const blobs: Blob[] = [];
-      for (let i = 0; i < part.urls.length; i++) {
-        setBusy((b) => ({ ...b, [key]: `${parts.length > 1 ? `Part ${pi}: ` : ''}${Math.round((i / part.urls.length) * 100)}%` }));
-        blobs.push(await (await fetch(part.urls[i])).blob());
-      }
-      const file = t.ext === 'wav' ? await joinWavChunks(blobs, 48000) : new Blob(blobs, { type: t.ext === 'mp4' ? 'video/mp4' : 'video/webm' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(file);
-      a.download = `${(s.meta?.title ?? s.id).replace(/[^\w -]+/g, '')} - ${personName(t.person)} - ${LABEL[t.track] ?? t.track}${parts.length > 1 ? ` (part ${pi})` : ''}.${t.ext}`;
-      a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
+    setBusy((b) => ({ ...b, [key]: 'Preparing…' }));
+    const r = await fetch(`/api/library/files?${q}`); if (!r.ok) throw new Error('list failed');
+    const { parts } = (await r.json()) as { parts: { part: string; urls: string[]; sizes: number[] }[] };
+    for (let i = 0; i < parts.length; i++) {
+      const label = parts.length > 1 ? ` (part ${i + 1})` : '';
+      const name = `${(s.meta?.title ?? s.id).replace(/[^\w -]+/g, '')} - ${t.track === 'active' ? 'Everyone' : personName(t.person)} - ${LABEL[t.track] ?? t.track}${label}`;
+      await downloadJoined(parts[i].urls, parts[i].sizes, name, t.ext, (pct) => setBusy((b) => ({ ...b, [key]: `${parts.length > 1 ? `Part ${i + 1}: ` : ''}${pct}%` })));
     }
     setBusy((b) => { const c = { ...b }; delete c[key]; return c; });
   };
@@ -86,8 +80,8 @@ export default function Library() {
                 const key = `${s.id}/${t.person}/${t.track}`;
                 return (
                   <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 12, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
-                    <span style={{ flex: 1 }}><strong>{t.track === 'active' ? 'Active video' : personName(t.person)}</strong> <span className="muted">· {t.track === 'active' ? 'everyone' : LABEL[t.track] ?? t.track} · {mb(t.bytes)}</span></span>
-                    <button className="btn" disabled={!!busy[key]} onClick={() => download(s, t).catch(() => setBusy((b) => ({ ...b, [key]: 'Failed — try again' })))}>{busy[key] ?? 'Download'}</button>
+                    <span style={{ flex: 1 }}><strong>{t.track === 'active' ? 'Everyone' : personName(t.person)}</strong> <span className="muted">· {LABEL[t.track] ?? t.track} · {mb(t.bytes)}</span></span>
+                    <button className="btn" disabled={!!busy[key] && !busy[key].startsWith('Failed')} onClick={() => download(s, t).catch(() => setBusy((b) => ({ ...b, [key]: 'Failed — tap to retry' })))}>{busy[key] ?? 'Download'}</button>
                   </div>);
               })}
             </section>);
