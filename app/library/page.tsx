@@ -15,10 +15,12 @@ export default function Library() {
   const [data, setData] = useState<Session[] | null>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState<Record<string, string>>({});
-  useEffect(() => {
-    fetch('/api/library').then(async (r) => { if (!r.ok) throw new Error(r.status === 501 ? 'Recording storage isn’t set up yet.' : 'Couldn’t load the library.'); return r.json(); })
-      .then((j) => setData(j.sessions)).catch((e) => setErr(e.message));
-  }, []);
+  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const load = () => fetch('/api/library').then(async (r) => { if (!r.ok) throw new Error(r.status === 501 ? 'Recording storage isn’t set up yet.' : 'Couldn’t load the library.'); return r.json(); })
+    .then((j) => { setData(j.sessions); setUsage({ used: j.usedBytes, limit: j.limitBytes }); }).catch((e) => setErr(e.message));
+  const remove = async (id: string) => { setConfirmDel(null); setBusy((b) => ({ ...b, [id]: 'Deleting…' })); await fetch(`/api/library?session=${id}`, { method: 'DELETE' }); await load(); };
+  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const download = async (s: Session, t: Track) => {
     const key = `${s.id}/${t.person}/${t.track}`;
@@ -45,6 +47,10 @@ export default function Library() {
       <TopNav current="library" />
       <main style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <h1 style={{ fontSize: 32 }}>Library</h1>
+        {usage && (<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span className="muted" style={{ fontSize: 13 }}>{mb(usage.used)} of {mb(usage.limit)} used</span>
+          <div style={{ height: 6, borderRadius: 3, background: 'var(--panel-2)' }}><div style={{ height: 6, borderRadius: 3, width: `${Math.min(100, (usage.used / usage.limit) * 100)}%`, background: usage.used / usage.limit > 0.85 ? 'var(--rec)' : 'var(--accent)' }} /></div>
+        </div>)}
         {err && <p className="muted">{err}</p>}
         {!data && !err && <p className="muted">Loading…</p>}
         {data?.length === 0 && <p className="muted">No recordings yet.</p>}
@@ -56,6 +62,10 @@ export default function Library() {
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: 20 }}>{s.meta?.title ?? 'Untitled episode'}</h2>
                 <span className="muted" style={{ fontSize: 13 }}>{new Date(s.meta?.startedAt ?? s.last).toLocaleString()}{s.meta?.durationMs ? ` · ${Math.round(s.meta.durationMs / 60000)} min` : ''}</span>
+                <span style={{ flex: 1 }} />
+                {confirmDel === s.id
+                  ? <><span style={{ fontSize: 13 }}>Delete this episode for everyone? This can’t be undone.</span><button className="btn btn-rec" style={{ borderRadius: 8 }} onClick={() => remove(s.id)}>Delete</button><button className="btn" onClick={() => setConfirmDel(null)}>Keep</button></>
+                  : <button className="btn" style={{ background: 'transparent' }} disabled={!!busy[s.id]} onClick={() => setConfirmDel(s.id)}>{busy[s.id] ?? 'Delete'}</button>}
               </div>
               {tracks.map((t) => {
                 const key = `${s.id}/${t.person}/${t.track}`;

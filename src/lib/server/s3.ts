@@ -1,4 +1,4 @@
-import { S3Client, PutBucketCorsCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutBucketCorsCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 
 /** R2/S3 client from env, or null when storage isn't configured. */
 let client: S3Client | null = null;
@@ -21,3 +21,25 @@ export async function ensureCors(origin: string) {
     }] } }));
   } catch (e) { console.warn('Could not set bucket CORS (set it in the R2 dashboard):', (e as Error).message); }
 }
+
+/**
+ * Storage cap (cost limit): R2 has no hard spending cap, so the site enforces one. New uploads are refused once the
+ * bucket holds STORAGE_LIMIT_GB (set in Vercel; 150 GB ≈ $2/month on R2 at most). Chunks that are refused stay safe in the browser
+ * and upload once space is freed (delete old episodes in the Library) or the limit is raised.
+ */
+export const limitBytes = () => (Number(process.env.STORAGE_LIMIT_GB) || 150) * 1e9;
+let usage: { bytes: number; at: number } | null = null;
+export async function bucketBytes(fresh = false): Promise<number> {
+  const c = s3(); if (!c) return 0;
+  if (!fresh && usage && Date.now() - usage.at < 60_000) return usage.bytes;
+  let bytes = 0; let token: string | undefined;
+  do {
+    const r = await c.client.send(new ListObjectsV2Command({ Bucket: c.bucket, ContinuationToken: token }));
+    for (const o of r.Contents ?? []) bytes += o.Size ?? 0;
+    token = r.IsTruncated ? r.NextContinuationToken : undefined;
+  } while (token);
+  usage = { bytes, at: Date.now() };
+  return bytes;
+}
+/** Count bytes we just allowed, so the cap holds between listings. */
+export const noteUpload = (n: number) => { if (usage) usage.bytes += n; };

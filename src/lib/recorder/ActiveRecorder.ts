@@ -40,7 +40,7 @@ export class ActiveRecorder {
     const stream = new MediaStream([...this.canvas.captureStream(30).getVideoTracks(), ...this.dest.stream.getAudioTracks()]);
     const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) ?? '';
     this.startMs = Date.now() - this.epochMs;
-    this.mr = new MediaRecorder(stream, { mimeType: mime || undefined, videoBitsPerSecond: 8_000_000 });
+    this.mr = new MediaRecorder(stream, { mimeType: mime || undefined, videoBitsPerSecond: 6_000_000 });
     this.mr.ondataavailable = async (e) => {
       if (!e.data.size) return;
       const meta: ChunkMeta = { track: 'active', index: this.index, startMs: this.startMs + this.index * CHUNK_MS, durationMs: CHUNK_MS, ext: mime.includes('mp4') ? 'mp4' : 'webm', bytes: e.data.size };

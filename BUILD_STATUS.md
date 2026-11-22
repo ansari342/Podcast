@@ -21,6 +21,7 @@ Sign-in + wrong passcode; all 17 games start; Imposter roles + reveal; Fast Mone
 
 ## Env (Vercel)
 Set: `LIVEKIT_URL`, `NEXT_PUBLIC_LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `STUDIO_PASSCODE`, `AUTH_SECRET`.
+Storage cap: `STORAGE_LIMIT_GB=150` (upload route refuses new chunks past it; Library shows usage and can delete episodes).
 Missing: `S3_ENDPOINT`, `S3_REGION=auto`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` — R2 must be enabled on the Cloudflare account first. The upload route tries to set bucket CORS itself; if the R2 token can't, add a CORS rule allowing GET/PUT from https://theboys.space.
 
 ## Next up

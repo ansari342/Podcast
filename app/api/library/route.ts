@@ -1,6 +1,6 @@
-import { GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { NextResponse } from 'next/server';
-import { s3 } from '@/lib/server/s3';
+import { bucketBytes, limitBytes, s3, safe } from '@/lib/server/s3';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,5 +31,20 @@ export async function GET() {
     try { const r = await c.client.send(new GetObjectCommand({ Bucket: c.bucket, Key: `sessions/${s.id}/meta.json` })); meta = JSON.parse(await r.Body!.transformToString()); } catch { /* no meta yet */ }
     return { id: s.id, last: s.last, meta, tracks: [...s.tracks.values()] };
   }));
-  return NextResponse.json({ sessions: list });
+  return NextResponse.json({ sessions: list, usedBytes: await bucketBytes(true), limitBytes: limitBytes() });
+}
+
+/** Deletes one episode's files from storage (frees space under the cap). */
+export async function DELETE(req: Request) {
+  const c = s3(); if (!c) return NextResponse.json({ error: 'Storage not configured' }, { status: 501 });
+  const id = safe(new URL(req.url).searchParams.get('session')); if (!id) return NextResponse.json({ error: 'session required' }, { status: 400 });
+  let token: string | undefined; let n = 0;
+  do {
+    const r = await c.client.send(new ListObjectsV2Command({ Bucket: c.bucket, Prefix: `sessions/${id}/`, ContinuationToken: token }));
+    const keys = (r.Contents ?? []).map((o) => ({ Key: o.Key! }));
+    if (keys.length) { await c.client.send(new DeleteObjectsCommand({ Bucket: c.bucket, Delete: { Objects: keys } })); n += keys.length; }
+    token = r.IsTruncated ? r.NextContinuationToken : undefined;
+  } while (token);
+  await bucketBytes(true);
+  return NextResponse.json({ deleted: n });
 }

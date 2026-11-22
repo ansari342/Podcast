@@ -69,6 +69,8 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const [faces, setFaces] = useState<Record<string, FaceBox | null>>({});
   const [fix, setFix] = useState<FixStep[] | null>(null);
   const [upl, setUpl] = useState({ done: 0, pending: 0 });
+  const [full, setFull] = useState(false);
+  useEffect(() => { const f = () => setFull(true); window.addEventListener('st3-storage-full', f); return () => window.removeEventListener('st3-storage-full', f); }, []);
   const els = useRef(new Map<string, HTMLVideoElement>());
   const screenEl = useRef<HTMLVideoElement | null>(null);
 
@@ -259,6 +261,7 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
         <span style={{ fontFamily: 'var(--font-head)', fontWeight: 600, fontSize: 16 }}>{title}</span>
         {(rec.state === 'rec' || rec.state === 'paused') && <span className="muted" style={{ fontSize: 13 }}>Recording {count + 1} videos{upl.pending > 3 ? ` · ${upl.pending} chunks waiting to upload` : ''}</span>}
         {rec.state === 'idle' && upl.pending > 0 && <span style={{ fontSize: 13, color: 'var(--warn)' }}>Uploading {upl.pending} chunks — keep this tab open</span>}
+        {full && <span style={{ fontSize: 13, color: 'var(--warn)' }}>Storage limit reached — still recording on this computer; delete old episodes in the Library to upload</span>}
         {live.status === 'connecting' && <span className="muted" style={{ fontSize: 13 }}>Connecting…</span>}
         <span style={{ flex: 1 }} />
         <nav aria-label="Studio panels" style={{ display: 'flex', gap: 6, padding: 4, borderRadius: 14, background: 'var(--panel)' }}>

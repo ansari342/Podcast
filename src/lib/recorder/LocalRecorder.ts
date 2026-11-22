@@ -39,7 +39,7 @@ export class LocalRecorder {
 
     // Video (camera track + mic for a reference audio track inside the video file)
     this.videoStartMs = Date.now() - this.epochMs;
-    this.mr = new MediaRecorder(stream, { mimeType: this.mimeType || undefined, videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 192_000 });
+    this.mr = new MediaRecorder(stream, { mimeType: this.mimeType || undefined, videoBitsPerSecond: 5_000_000, audioBitsPerSecond: 192_000 });
     this.mr.ondataavailable = async (e) => {
       if (!e.data.size) return;
       const meta: ChunkMeta = { track: 'camera_raw', index: this.videoIndex++, startMs: this.videoStartMs + (this.videoIndex - 1) * CHUNK_MS, durationMs: CHUNK_MS, ext: this.mimeType.includes('mp4') ? 'mp4' : 'webm', bytes: e.data.size };
