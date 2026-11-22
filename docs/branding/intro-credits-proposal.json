@@ -1,0 +1,109 @@
+{
+  "title": "Three Idiots — Opening Credits Proposal",
+  "version": "1.0",
+  "date": "2026-11-22",
+  "show_name": "Three Idiots (working title)",
+  "summary": "A 15-second hype intro on a hip-hop beat. It opens with a beat drop, gives each host a freeze-frame name card cut on the beat, runs a fast montage of game moments, and ends on a logo slam. It goes between the cold open and the episode, so every episode opens the same way.",
+  "reference": {
+    "inspiration": "The FRDi Show intro",
+    "what_we_borrow": [
+      "Short and high-energy, under 20 seconds",
+      "A hip-hop beat sets the pace, and every cut lands on a beat",
+      "Each host gets their own moment and name card",
+      "Real clips from the show, not stock footage",
+      "The same intro every episode, so it becomes the show's signature"
+    ],
+    "note": "These are the general traits of a hype-style show intro. Watch the FRDi intro again before locking the edit and change anything that doesn't match the feel you like."
+  },
+  "placement": {
+    "order": ["Cold open (2–3 punchlines)", "OPENING CREDITS", "Ahsan's welcome", "Episode"],
+    "edl_section": "Add a 'credits' section between 'cold' and 'intro' in edit/edl.json"
+  },
+  "music": {
+    "style": "Boom-bap / modern hip-hop instrumental with a hard drum drop",
+    "tempo_bpm": 92,
+    "length_bars": 6,
+    "length_seconds": 15.6,
+    "math": "At 92 BPM one beat is 0.652 s and one 4/4 bar is 2.61 s, so 6 bars ≈ 15.6 s",
+    "structure": [
+      {"bars": "1", "what": "Filtered intro: melody only, no drums, with a vinyl crackle or record scratch"},
+      {"bars": "2–5", "what": "Full beat drops on the first downbeat of bar 2"},
+      {"bars": "6", "what": "Beat plays 3 beats, then cuts to silence on beat 4 for the logo hit"}
+    ],
+    "where_to_get_it": [
+      {"source": "YouTube Audio Library", "cost": "Free", "note": "Safe for YouTube monetization. Filter by Genre: Hip Hop & Rap."},
+      {"source": "Epidemic Sound or Artlist", "cost": "Subscription", "note": "Bigger, higher-quality catalog. Covers YouTube, TikTok and Spotify video."},
+      {"source": "BeatStars lease or a commissioned beat", "cost": "~$30–$150", "note": "A beat only you use. Read the lease terms for streaming limits."},
+      {"source": "Make it in GarageBand or BandLab", "cost": "Free", "note": "Fully yours. Cut the beat to exactly 6 bars."}
+    ],
+    "avoid": "Commercial songs, even 10 seconds. Content ID will flag or demonetize the episode."
+  },
+  "visual_style": {
+    "palette": ["#111111 black", "#FFFFFF white", "#E63946 red (accent, name slams only)"],
+    "type": "Helvetica Neue Bold, all caps, tight letter spacing. Matches the 'DON'T DO DRUGS.' shirt.",
+    "freeze_frames": "Black-and-white freeze frame, host cut out with a thick white sticker outline, film grain",
+    "motion": "Hard cuts on beats, 2–4 frame camera shake on drum hits, no slow fades or glossy 3D"
+  },
+  "shot_list": [
+    {
+      "time": "0:00.0 – 0:02.6",
+      "bar": 1,
+      "visual": "Black screen. Three 0.4 s flash-cuts of reactions: Omar 'builds character', Ahmad hitting the airhorn, Ahsan cracking up.",
+      "text": "None",
+      "audio": "Filtered intro + record scratch on the last beat"
+    },
+    {
+      "time": "0:02.6 – 0:05.2",
+      "bar": 2,
+      "visual": "Beat drops. Freeze frame of Ahsan, cut out on black, punches in 110% on the downbeat.",
+      "text": "AHSAN (big, white) / 'BUILT THE GAME APP LAST NIGHT' (small)",
+      "audio": "Drum drop"
+    },
+    {
+      "time": "0:05.2 – 0:07.8",
+      "bar": 3,
+      "visual": "Freeze frame of Ahmad, same treatment.",
+      "text": "AHMAD / 'WHITE-ISH'",
+      "audio": "Airhorn on beat 1 (the one from the episode)"
+    },
+    {
+      "time": "0:07.8 – 0:10.4",
+      "bar": 4,
+      "visual": "Freeze frame of Omar, same treatment.",
+      "text": "OMAR / 'JOINED FROM BRUNCH'",
+      "audio": "Beat continues"
+    },
+    {
+      "time": "0:10.4 – 0:13.0",
+      "bar": 5,
+      "visual": "Montage cut on 8th notes (0.33 s each): buzzer spam, Thermostat answer stack, 'IMPOSTER' chip reveal, Fast Money banner, group laughing.",
+      "text": "Game graphics already in the edit",
+      "audio": "Beat continues. Buzzer SFX on the first two cuts."
+    },
+    {
+      "time": "0:13.0 – 0:15.6",
+      "bar": 6,
+      "visual": "Group shot of all three. On beat 4 the music cuts, the screen goes black and the logo slams in.",
+      "text": "THREE IDIOTS (logo) / 'EPISODE 1' (small, under)",
+      "audio": "Silence on beat 4, then one bass hit with the logo"
+    }
+  ],
+  "per_episode_changes": [
+    "Swap the bar 5 montage for moments from that episode",
+    "Update the 'EPISODE N' line",
+    "Optional: change each host's subtitle to a joke from that episode"
+  ],
+  "build_steps": [
+    "Pick the beat and trim it to 6 bars at 92 BPM (or re-time the shot list to its tempo)",
+    "Export freeze frames of each host from the camera files at the timestamps above",
+    "Cut out the hosts (Photoshop 'Remove Background', or remove.bg) and add a white outline",
+    "Build the 15 s sequence in CapCut / Premiere / DaVinci, or as a 'credits' section in edit/build.py",
+    "Snap every cut to a beat marker",
+    "Render once as intro.mp4 and reuse it, changing only bar 5 and the episode number"
+  ],
+  "open_questions": [
+    "Final show name, since 'Three Idiots' is a placeholder",
+    "Free library beat or a beat only you use",
+    "Are you all happy with your name-card subtitles?"
+  ]
+}
