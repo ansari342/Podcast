@@ -9,7 +9,10 @@ import { GAMES, TRIVIA, isPlayable, rulesFor, type Game } from '@/lib/games';
 import { SAMPLE_PLAN, nextAfter, type PlanItem } from '@/lib/plan';
 import { SOUNDS, playSound } from '@/lib/sfx';
 import { LocalRecorder } from '@/lib/recorder/LocalRecorder';
-import { UploadQueue, notConfiguredSend } from '@/lib/recorder/uploadQueue';
+import { UploadQueue } from '@/lib/recorder/uploadQueue';
+import { makeS3Send } from '@/lib/recorder/s3Send';
+import { useLiveRoom } from '@/hooks/useLiveRoom';
+import { RemoteTile } from '@/components/RemoteTile';
 
 type Tab = 'games' | 'topics' | 'setup' | null;
 type RecState = 'idle' | 'countdown' | 'rec' | 'paused';
@@ -26,9 +29,9 @@ export default function Studio({ params }: { params: Promise<{ session: string }
   const title = sp.get('title') ?? 'Episode';
   const d = useDevices();
 
-  // TODO(S1): replace with LiveKit participants. Remote count is 0 until the call layer is wired.
-  const remoteNames: string[] = [];
-  const people = 1 + remoteNames.length;
+  const [identity] = useState(() => (isHost ? 'host' : 'guest') + '-' + Math.random().toString(36).slice(2, 7));
+  const live = useLiveRoom(session, identity, d.stream);
+  const people = Math.min(3, 1 + live.remotes.length); // G14: count = people in the room
 
   const [tab, setTab] = useState<Tab>(null);
   const [muted, setMuted] = useState(false);
@@ -67,7 +70,7 @@ export default function Studio({ params }: { params: Promise<{ session: string }
     setTimeout(async () => {
       const epoch = Date.now();
       startAt.current = epoch; pausedMs.current = 0;
-      uploader.current = new UploadQueue(session, notConfiguredSend);
+      uploader.current = new UploadQueue(session, makeS3Send(identity));
       recorder.current = new LocalRecorder(session, isHost ? 'host' : 'guest', epoch, {
         onChunk: (m) => { setChunks((n) => n + 1); uploader.current?.add(m); },
       });
@@ -153,10 +156,16 @@ export default function Studio({ params }: { params: Promise<{ session: string }
                     </>) : <span className="muted">{rulesFor(activeGame, people)} — game board TODO (G8, G9)</span>}
                     {isHost && <button className="btn" onClick={() => setActiveGame(null)}>End game</button>}
                   </div>
-                  <video ref={attach} autoPlay muted playsInline style={{ width: '18%', objectFit: 'cover', borderRadius: 10, transform: 'scaleX(-1)' }} />
+                  <div style={{ width: '18%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <video ref={attach} autoPlay muted playsInline style={{ flex: 1, minHeight: 0, objectFit: 'cover', borderRadius: 10, transform: 'scaleX(-1)' }} />
+                    {live.remotes.slice(0, 2).map((r) => <RemoteTile key={r.identity} r={r} style={{ flex: 1, minHeight: 0, borderRadius: 10 }} />)}
+                  </div>
                 </div>
               ) : (
-                <video ref={attach} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
+                <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${people}, minmax(0, 1fr))`, gap: 0 }}>
+                  <video ref={attach} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
+                  {live.remotes.slice(0, 2).map((r) => <RemoteTile key={r.identity} r={r} style={{ width: '100%', height: '100%' }} />)}
+                </div>
               )}
               {rec === 'countdown' && <div style={{ position: 'absolute', inset: 0, background: 'rgba(14,15,18,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-head)', fontSize: 120, fontWeight: 700 }}>{count}</div>}
             </div>
@@ -195,7 +204,7 @@ export default function Studio({ params }: { params: Promise<{ session: string }
 
             {tab === 'setup' && (<>
               <h3 style={{ fontSize: 16 }}>People</h3>
-              <span className="muted" style={{ fontSize: 13 }}>{people} {people === 1 ? 'person' : 'people'} in the room</span>
+              <span className="muted" style={{ fontSize: 13 }}>{people} {people === 1 ? 'person' : 'people'} in the room{live.status === 'not-configured' ? ' · call not configured yet (LiveKit keys)' : ''}</span>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input className="input" readOnly value={typeof window !== 'undefined' ? `${window.location.origin}/green-room/${session}` : ''} aria-label="Invite link" style={{ flex: 1, minWidth: 0 }} />
                 <button className="btn btn-primary" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/green-room/${session}`)}>Copy</button>

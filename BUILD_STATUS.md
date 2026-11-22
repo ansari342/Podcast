@@ -16,14 +16,20 @@ Branch: `build/m1` · Spec: `docs/BRIEF.md` · Mocks: `docs/mocks/`
 - [x] **Game catalog** (`src/lib/games.ts`) — all 17 games with codes, list line, min players, rules per count, board-on-recording default, and special routing flags (Fast Money: mute asker for guessers; Guess the Sound: hide video from guessers). Games tab disables games below the minimum (G14, G15, V4). Trivia playable end to end (question, Reveal answer, Next question).
 - [x] **Setup tab** — People (count, invite link + Copy), Plan (Now/Next, tick, rename, reorder, Start, Add — P2, P3, local state only), Sound effects (9 pads, placeholder synth tones — SB1), mic/camera pickers.
 
+- [x] **Live call (code ready, needs keys)** — `app/api/livekit-token/route.ts` issues join tokens; `src/hooks/useLiveRoom.ts` joins the session room, publishes camera + mic, lists remote people; studio shows up to 3 tiles side by side and in the faces strip during games; people count is live (S1, G14). Without keys the studio runs solo and Setup says "call not configured yet".
+- [x] **Uploads (code ready, needs keys)** — `app/api/upload-url/route.ts` returns presigned PUT URLs for R2/S3 (key: `sessions/<session>/<user>/<track>/<index>.<ext>`); `makeS3Send` plugs into `UploadQueue`; studio recordings upload as chunks arrive and stay on disk until confirmed (R3, R4).
+- [x] `.env.example` lists every variable.
+
 ## In progress
-- [ ] LiveKit call + upload API stubs (S1, V1, R3)
+- (nothing — handoff point)
 
 ## Next up (in order)
-3. LiveKit call: token API route + room hook, mic/camera/share (S1, V1). Needs keys.
-4. Uploads: presigned multipart to R2/S3, upload queue, library page (R3–R4, L1–L2). Needs keys.
-5. Supabase auth + allowlist (A1–A3) and Session/Participant/Track tables (Data model).
-6. Remaining M1/M2 items per `docs/BRIEF.md` → Build order.
+1. **Add keys and test the call + uploads end to end** with 2–3 browsers (fill `.env.local`). Check the bucket receives chunks for both `camera_raw` and `mic_raw`.
+2. **Shared session clock (R6):** when Record is pressed, broadcast `{type:'rec-start', epochMs}` over `room.localParticipant.publishData`; every browser starts its `LocalRecorder` with that epoch (anyone can press Record — S3). Same for pause/stop.
+3. **Supabase auth + allowlist (A1–A3)** and tables from `docs/BRIEF.md` → Data model; protect both API routes.
+4. **Library (L1–L2)** listing sessions from the DB and signed download URLs; **render worker** that joins chunks and builds the active video (R5, R7).
+5. **Shared game/plan state (G8, G9, P4)** over the data channel, then the launch games G1–G3 boards. Fast Money needs per-listener muting (`setTrackSubscriptionPermissions` / unsubscribe the asker's mic for guessers only) — G3.
+6. Screen share (V1–V3), reactions (RX1), troubleshooting (T1–T7), noise cancellation + backgrounds (S9–S14), topics (C1–C4), overlays (AO1–AO4), remaining games — in `docs/BRIEF.md` milestone order.
 
 ## Needs from Ahsan (keys go in `.env.local` / Vercel env, never in git)
 - LiveKit Cloud: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
@@ -44,3 +50,6 @@ Branch: `build/m1` · Spec: `docs/BRIEF.md` · Mocks: `docs/mocks/`
 ## Decisions made
 - No separate join page: invite link → `/green-room/[session]` → `/studio/[session]?role=guest`.
 - COOP/COEP headers set in `next.config.mjs` for the audio worklet.
+
+## Prompt for the next agent
+> You're continuing the Studio Three build in this repo (branch `build/m1`). Read `docs/BRIEF.md` (spec, source of truth) and `BUILD_STATUS.md` (what's done and what's next). Mocks are in `docs/mocks/` (`Studio.dc.html` is the main studio). Work through "Next up" in order, keep `npm run build` passing, commit and push after each item, and update `BUILD_STATUS.md` every push.
