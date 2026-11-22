@@ -53,3 +53,9 @@ Branch: `build/m1` · Spec: `docs/BRIEF.md` · Mocks: `docs/mocks/`
 
 ## Prompt for the next agent
 > You're continuing the Studio Three build in this repo (branch `build/m1`). Read `docs/BRIEF.md` (spec, source of truth) and `BUILD_STATUS.md` (what's done and what's next). Mocks are in `docs/mocks/` (`Studio.dc.html` is the main studio). Work through "Next up" in order, keep `npm run build` passing, commit and push after each item, and update `BUILD_STATUS.md` every push.
+
+## Deployment (2026-11-22)
+- Live at https://theboys.space (www redirects to it). Vercel project `podcast` (prj_sH7X1srWqmvap8Tr4K3fJ3E3y6sN), team ansari342-2369s-projects.
+- Production branch: build/m1. Every push to it deploys automatically.
+- Next.js pinned to 15.5.29. Vercel blocks older 15.5.x builds (CVE-2025-66478).
+- Env vars are NOT set yet. Add them in Vercel → Project → Settings → Environment Variables (see .env.example), then redeploy.
