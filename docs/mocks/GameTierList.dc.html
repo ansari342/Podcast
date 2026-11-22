@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studio Three — Tier list</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E0F12}
+a{color:#FF8A5B}a:hover{color:#FFB08F}
+</style>
+</helmet>
+<div style="min-height: 960px; background: #0E0F12; color: #F2F2F3; font-family: Inter, system-ui, sans-serif; font-size: 15px">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 14px 32px; border-bottom: 1px solid #2A2C33">
+    <a href="Studio.dc.html" style="color: #A1A3AB; text-decoration: none; font-size: 14px">Back to studio</a>
+    <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 18px; flex: 1 1 auto">Tier list · Fast-food fries</div>
+    <div role="group" aria-label="Mode" style="display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #17181C; border: 1px solid #2A2C33">
+      <button aria-pressed="true" style="min-height: 34px; padding: 0 12px; border: 0; border-radius: 7px; background: #FF7A45; color: #0E0F12; font: inherit; font-size: 14px">Group list</button>
+      <button aria-pressed="false" style="min-height: 34px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: #C9CBD2; font: inherit; font-size: 14px">Everyone's own</button>
+    </div>
+    <button onClick="{{toggleRecGame}}" aria-pressed="{{recGamePressed}}" title="Choose whether the game board appears in the recording" style="display: inline-flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 14px 0 8px; border-radius: 999px; border: 1px solid {{recGameBorder}}; background: transparent; color: #F2F2F3; font: inherit; font-size: 14px; cursor: pointer">
+      <span style="width: 34px; height: 20px; border-radius: 999px; padding: 2px; box-sizing: border-box; background: {{recGameTrack}}; display: flex; justify-content: {{recGameAlign}}"><span style="width: 16px; height: 16px; border-radius: 50%; background: #F2F2F3"></span></span>
+      {{recGameLabel}}
+    </button>
+    <span style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: #3A1A1C; color: #FF9C9A; font-weight: 600; font-size: 14px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #F0524F"></span>REC 01:02:40</span>
+  </header>
+
+  <div style="max-width: 1280px; margin: 0 auto; padding: 24px 32px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+    <section style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+        <div style="display: flex; min-height: 76px; border-radius: 12px; overflow: hidden; background: #17181C; border: 1px solid #2A2C33">
+          <button onClick="{{r.place}}" aria-label="Place current item in tier {{r.tier}}" style="width: 88px; flex-shrink: 0; border: 0; background: {{r.color}}; color: #0E0F12; font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 700; cursor: pointer">{{r.tier}}</button>
+          <div style="flex: 1; display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; align-content: center">
+            <sc-for list="{{r.items}}" as="it" hint-placeholder-count="2">
+              <span style="display: inline-flex; align-items: center; min-height: 48px; padding: 0 14px; border-radius: 10px; background: #1F2026; border: 1px solid #2A2C33; font-weight: 500">{{it}}</span>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+      <p style="margin: 8px 0 0; color: #A1A3AB; font-size: 14px">Prototype: press a tier letter to drop the current item there. In the real game, anyone can drag; live cursors show who's moving what.</p>
+    </section>
+
+    <aside style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 16px">
+      <div style="background: #17181C; border: 1px solid #2A2C33; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <span style="font-size: 13px; color: #A1A3AB">Up next · {{remaining}} left</span>
+        <div style="position: relative; display: flex; align-items: center; justify-content: center; min-height: 140px; border-radius: 14px; border: 2px dashed #FF7A45; background: #1F2026; font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 600; text-align: center; padding: 12px">
+          {{current}}
+          <sc-if value="{{hasCurrent}}" hint-placeholder-val="{{ true }}">
+            <span style="position: absolute; right: 10px; bottom: 10px; padding: 3px 8px; border-radius: 6px; background: #5B8CFF; color: #0E0F12; font-family: Inter, sans-serif; font-size: 12px; font-weight: 600">[Friend 1] is dragging</span>
+          </sc-if>
+        </div>
+        <button onClick="{{reset}}" style="min-height: 44px; border-radius: 10px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; cursor: pointer">Reset board</button>
+      </div>
+      <div style="background: #17181C; border: 1px solid #2A2C33; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600">Host controls</h2>
+        <button style="min-height: 44px; border-radius: 10px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; cursor: pointer">Add items (search or upload images)</button>
+        <button style="min-height: 44px; border-radius: 10px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; cursor: pointer">Lock board and show final</button>
+        <button style="min-height: 44px; border-radius: 10px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; cursor: pointer">Export board as image</button>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.start = { S: ['Five Guys'], A: ['Chick-fil-A', 'In-N-Out'], B: ["McDonald's"], C: ['Shake Shack'], D: [], F: ['Burger King'] };
+    this.queue = ["Arby's curly fries", "Wendy's", 'Popeyes', 'Jack in the Box'];
+    this.state = { recGame: true, placed: this.start, next: 0 };
+  }
+  renderVals() {
+    const s = this.state;
+    const colors = { S: '#FF7A45', A: '#FFB08F', B: '#C9B37E', C: '#7FD6A4', D: '#5B8CFF', F: '#A1A3AB' };
+    const current = this.queue[s.next];
+    return {
+      recGame: s.recGame,
+      recGameOff: !s.recGame,
+      recGamePressed: s.recGame ? 'true' : 'false',
+      recGameBorder: s.recGame ? '#FF7A45' : '#2A2C33',
+      recGameTrack: s.recGame ? '#FF7A45' : '#3A3C44',
+      recGameAlign: s.recGame ? 'flex-end' : 'flex-start',
+      recGameLabel: s.recGame ? 'Game screen is recorded' : 'Game screen not recorded',
+      toggleRecGame: () => this.setState({ recGame: !s.recGame }),
+      current: current || 'All placed',
+      hasCurrent: !!current,
+      remaining: this.queue.length - s.next,
+      reset: () => this.setState({ placed: this.start, next: 0 }),
+      rows: Object.keys(colors).map((t) => ({
+        tier: t,
+        color: colors[t],
+        items: s.placed[t],
+        place: () => {
+          if (!current) return;
+          const placed = Object.assign({}, s.placed);
+          placed[t] = s.placed[t].concat([current]);
+          this.setState({ placed: placed, next: s.next + 1 });
+        }
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

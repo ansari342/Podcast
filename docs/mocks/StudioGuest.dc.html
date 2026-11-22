@@ -1,0 +1,861 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studio Three — Studio, guest</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E0F12}
+a{color:#FF8A5B}a:hover{color:#FFB08F}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #0E0F12; color: #F2F2F3; font-family: Inter, system-ui, sans-serif; font-size: 15px; display: flex; flex-direction: column">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 24px">
+    <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 16px">Episode 15: [TITLE]</span>
+    <sc-if value="{{showMini}}" hint-placeholder-val="{{ false }}">
+      <div aria-label="Everyone's video" style="display: flex; gap: 6px; margin-left: 8px">
+        <sc-for list="{{seats}}" as="p" hint-placeholder-count="3">
+          <span style="position: relative; width: 56px; height: 42px; border-radius: 10px; overflow: hidden; background: #2B2F3A; outline: 2px solid {{p.ring}}; outline-offset: -2px">
+            <span style="position: absolute; left: 22%; bottom: 0; width: 56%; height: 46%; background: {{p.shirt}}; border-radius: 30px 30px 0 0"></span>
+            <span style="position: absolute; left: 36%; bottom: 40%; width: 28%; aspect-ratio: 1; background: {{p.skin}}; border-radius: 50%"></span>
+          </span>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{isRec}}" hint-placeholder-val="{{ false }}">
+      <div style="position: relative">
+        <button onClick="{{toggleFiles}}" aria-expanded="{{filesExpanded}}" style="display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid #2A2C33; background: transparent; color: #F2F2F3; font: inherit; font-size: 14px; cursor: pointer">
+          <span style="width: 9px; height: 9px; border-radius: 50%; background: #F0524F" aria-hidden="true"></span>Recording {{videoCount}} videos
+        </button>
+        <sc-if value="{{filesOpen}}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; right: 0; top: 44px; z-index: 5; width: 320px; padding: 14px; border-radius: 12px; background: #1F2026; border: 1px solid #2A2C33; display: flex; flex-direction: column; gap: 10px">
+            <sc-for list="{{videoList}}" as="v" hint-placeholder-count="4">
+              <div style="display: flex; gap: 10px; align-items: flex-start">
+                <span style="width: 8px; height: 8px; margin-top: 7px; border-radius: 50%; background: #F0524F; flex-shrink: 0" aria-hidden="true"></span>
+                <span style="display: flex; flex-direction: column; gap: 2px">
+                  <span style="font-weight: 600; font-size: 14px">{{v.name}}</span>
+                  <span style="font-size: 12px; color: #A1A3AB">{{v.desc}}</span>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+    <span style="flex: 1"></span>
+    <nav aria-label="Studio panels" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; border-radius: 14px; background: #17181C">
+      <sc-for list="{{panelButtons}}" as="pb" hint-placeholder-count="5">
+        <button onClick="{{pb.toggle}}" aria-pressed="{{pb.pressed}}" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 10px; border: 0; background: {{pb.bg}}; color: {{pb.fg}}; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{pb.d}}"/></svg>{{pb.label}}
+        </button>
+      </sc-for>
+    </nav>
+  </header>
+
+  <div style="flex: 1; display: flex; gap: 16px; padding: 0 24px; min-height: 0">
+    <sc-if value="{{showStage}}" hint-placeholder-val="{{ true }}">
+    <main style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+
+      <div style="position: relative; width: 100%; aspect-ratio: 16 / 8; border-radius: 16px; overflow: hidden; background: #2B2F3A">
+        <sc-if value="{{modeRoom}}" hint-placeholder-val="{{ true }}">
+          <div style="position: absolute; left: 3%; top: 22%; width: 18%; height: 2%; background: #4A4F5E"></div>
+          <div style="position: absolute; left: 4%; top: 9%; width: 3%; height: 13%; background: #FF7A45"></div>
+          <div style="position: absolute; left: 8%; top: 12%; width: 2.4%; height: 10%; background: #5B8CFF"></div>
+          <div style="position: absolute; left: 11.5%; top: 14%; width: 4%; height: 8%; background: #C9B37E"></div>
+          <div style="position: absolute; left: 44%; top: 7%; padding: 6px 18px; border: 3px solid #FF7A45; border-radius: 999px; color: #FF7A45; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: 3px">ON AIR</div>
+          <div style="position: absolute; left: 87%; top: 14%; width: 6%; aspect-ratio: 1; border-radius: 50%; background: #3F7A5A"></div>
+          <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 24%; background: #5A3E30; border-top: 6px solid #7A5644"></div>
+          <sc-for list="{{seats}}" as="p" hint-placeholder-count="3">
+            <div style="position: absolute; left: {{p.body}}; bottom: 0; width: 20%; height: 52%; background: {{p.shirt}}; border-radius: 140px 140px 0 0"></div>
+            <div style="position: absolute; left: {{p.head}}; bottom: 44%; width: 11%; aspect-ratio: 1; background: {{p.skin}}; border-radius: 50%"></div>
+          </sc-for>
+          <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 15%; background: #6A4A3A; border-top: 6px solid #8A6452"></div>
+          <sc-for list="{{seats}}" as="p" hint-placeholder-count="3">
+            <div style="position: absolute; left: {{p.mic}}; bottom: 15%; width: 1.6%; height: 17%; background: #22242B; border-radius: 10px 10px 2px 2px"></div>
+          </sc-for>
+          <sc-for list="{{ovRender}}" as="o" hint-placeholder-count="1">
+            <sc-if value="{{o.hat}}" hint-placeholder-val="{{ false }}">
+              <div style="position: absolute; left: {{o.l}}; bottom: 61%; width: 13%; height: 15%">
+                <div style="position: absolute; left: 22%; right: 22%; top: 0; bottom: 22%; background: #1C1D22; border-radius: 8px 8px 2px 2px; border-bottom: 5px solid #FF7A45"></div>
+                <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 24%; background: #1C1D22; border-radius: 999px"></div>
+              </div>
+            </sc-if>
+            <sc-if value="{{o.glasses}}" hint-placeholder-val="{{ false }}">
+              <div style="position: absolute; left: {{o.l}}; bottom: 54%; width: 9%; height: 6%; display: flex; align-items: center; gap: 6%">
+                <span style="flex: 1; height: 100%; border-radius: 50%; border: 3px solid #111; background: rgba(20,20,20,0.6)"></span>
+                <span style="flex: 1; height: 100%; border-radius: 50%; border: 3px solid #111; background: rgba(20,20,20,0.6)"></span>
+              </div>
+            </sc-if>
+            <sc-if value="{{o.crown}}" hint-placeholder-val="{{ false }}">
+              <div style="position: absolute; left: {{o.l}}; bottom: 63%; width: 10%; height: 10%; background: #E8B84A; clip-path: polygon(0 100%, 0 20%, 25% 60%, 50% 0, 75% 60%, 100% 20%, 100% 100%)"></div>
+            </sc-if>
+            <sc-if value="{{o.other}}" hint-placeholder-val="{{ false }}">
+              <span style="position: absolute; left: {{o.l}}; bottom: 68%; padding: 4px 10px; border-radius: 999px; background: #FF7A45; color: #0E0F12; font-size: 12px; font-weight: 600">{{o.text}}</span>
+            </sc-if>
+          </sc-for>
+          <sc-if value="{{ovGen}}" hint-placeholder-val="{{ false }}">
+            <span style="position: absolute; left: {{ovGenLeft}}; bottom: 68%; padding: 4px 10px; border-radius: 999px; background: rgba(14,15,18,0.9); border: 1px solid #FF7A45; font-size: 12px">Generating overlay…</span>
+          </sc-if>
+          <sc-if value="{{tiles}}" hint-placeholder-val="{{ false }}">
+            <sc-for list="{{dividers}}" as="d" hint-placeholder-count="2">
+              <div style="position: absolute; left: {{d}}; top: 0; bottom: 0; width: 10px; margin-left: -5px; background: #0E0F12"></div>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{hasPinned}}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; left: 3%; top: 6%; max-width: 36%; padding: 10px 14px; border-radius: 10px; background: rgba(14,15,18,0.88); display: flex; flex-direction: column; gap: 2px">
+              <span style="font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #FF8A5B">TONIGHT'S DEBATE</span>
+              <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 15px">{{pinnedTitle}}</span>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{modeActivity}}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; background: #0E0F12; padding: 12px; box-sizing: border-box; display: flex; gap: 12px">
+            <div style="flex: 1; min-width: 0; border-radius: 12px; overflow: hidden; background: {{activityBg}}; display: flex; flex-direction: column">
+              <sc-if value="{{modeScreen}}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #DADCE0">
+                  <span style="width: 10px; height: 10px; border-radius: 50%; background: #F0524F"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #FFC58A"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #7FD6A4"></span>
+                  <span style="flex: 1; margin-left: 8px; padding: 4px 10px; border-radius: 6px; background: #F2F2F3; color: #4A4D55; font-size: 12px">[the site you're showing]</span>
+                </div>
+                <div style="flex: 1; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+                  <div style="width: 50%; height: 16px; border-radius: 4px; background: #B9BCC4"></div>
+                  <div style="width: 80%; height: 10px; border-radius: 4px; background: #D3D5DA"></div>
+                  <div style="display: flex; gap: 10px; flex: 1; margin-top: 6px"><div style="flex: 1; border-radius: 6px; background: #C9CDD6"></div><div style="flex: 1; border-radius: 6px; background: #C9CDD6"></div><div style="flex: 1; border-radius: 6px; background: #C9CDD6"></div></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{modeGame}}" hint-placeholder-val="{{ false }}">
+                <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center">
+                  <span style="font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #FF8A5B">NOW PLAYING</span>
+                  <span style="font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 600">{{gameName}}</span>
+                  <sc-if value="{{isTrivia}}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size: 24px; font-weight: 600; max-width: 640px">{{triviaQ}}</span>
+                    <sc-if value="{{triviaShown}}" hint-placeholder-val="{{ false }}">
+                      <span style="padding: 10px 18px; border-radius: 12px; background: #13261C; color: #CDEFD9; font-size: 18px; font-weight: 600">{{triviaA}}</span>
+                    </sc-if>
+                    <div style="display: flex; gap: 8px">
+                      <sc-if value="{{triviaHidden}}" hint-placeholder-val="{{ true }}">
+                        <button onClick="{{revealTrivia}}" style="min-height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">Reveal answer</button>
+                      </sc-if>
+                      <button onClick="{{nextTrivia}}" style="min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; cursor: pointer">Next question</button>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{gameHref}}" hint-placeholder-val="{{ true }}">
+                    <a href="{{gameHref}}" style="font-size: 14px">Open the full game screen</a>
+                  </sc-if>
+                  <sc-if value="{{isHost}}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{endActivity}}" style="min-height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; cursor: pointer">End game</button>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </div>
+            <div style="width: 17%; display: flex; flex-direction: column; gap: 8px">
+              <sc-for list="{{seats}}" as="p" hint-placeholder-count="3">
+                <div style="flex: 1; position: relative; border-radius: 10px; overflow: hidden; background: #2B2F3A; outline: 2px solid {{p.ring}}; outline-offset: -2px">
+                  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 20%; background: #6A4A3A"></div>
+                  <div style="position: absolute; left: 22%; bottom: 0; width: 56%; height: 46%; background: {{p.shirt}}; border-radius: 60px 60px 0 0"></div>
+                  <div style="position: absolute; left: 36%; bottom: 40%; width: 28%; aspect-ratio: 1; background: {{p.skin}}; border-radius: 50%"></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{hasFloat}}" hint-placeholder-val="{{ false }}">
+          <span style="position: absolute; left: {{floatLeft}}; bottom: 42%; width: 44px; height: 44px; border-radius: 50%; background: rgba(14,15,18,0.9); display: flex; align-items: center; justify-content: center" role="img" aria-label="Reaction">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF8A5B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{floatPath}}"/></svg>
+          </span>
+        </sc-if>
+        <sc-if value="{{hasSound}}" hint-placeholder-val="{{ false }}">
+          <span style="position: absolute; left: 50%; top: 16px; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px; background: #FF7A45; color: #0E0F12; font-weight: 600; font-size: 14px">Playing: {{soundName}}</span>
+        </sc-if>
+        <sc-if value="{{isCountdown}}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; background: rgba(14,15,18,0.6); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 120px; font-weight: 700">{{countdown}}</div>
+        </sc-if>
+      </div>
+
+      <div style="position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 0">
+        <div style="display: flex; gap: 8px; flex: 1 1 0; position: relative">
+          <button onClick="{{toggleMute}}" aria-label="{{muteAria}}" title="{{muteAria}}" aria-pressed="{{mutePressed}}" style="width: 52px; height: 52px; border-radius: 14px; border: 0; background: {{muteBg}}; color: {{muteFg}}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/><path d="M4 4l16 16" stroke-opacity="{{muteSlash}}"/></svg>
+          </button>
+          <button onClick="{{toggleCam}}" aria-label="{{camAria}}" title="{{camAria}}" aria-pressed="{{camPressed}}" style="width: 52px; height: 52px; border-radius: 14px; border: 0; background: {{camBg}}; color: {{camFg}}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/><path d="M3 3l18 18" stroke-opacity="{{camSlash}}"/></svg>
+          </button>
+          <button onClick="{{shareClick}}" aria-label="{{shareAria}}" title="{{shareAria}}" aria-pressed="{{sharePressed}}" style="width: 52px; height: 52px; border-radius: 14px; border: 0; background: {{shareBg}}; color: {{shareFg}}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M12 13V8M9.5 10.5L12 8l2.5 2.5"/></svg>
+          </button>
+          <button onClick="{{toggleReact}}" aria-label="React or raise hand" title="React or raise hand" aria-expanded="{{reactExpanded}}" style="width: 52px; height: 52px; border-radius: 14px; border: 0; background: {{reactBg}}; color: #F2F2F3; cursor: pointer; display: inline-flex; align-items: center; justify-content: center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 3 4 3 4-3 4-3M9 9h.01M15 9h.01"/></svg>
+          </button>
+          <button onClick="{{toggleOverlay}}" aria-expanded="{{ovExpanded}}" style="display: inline-flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 16px; border-radius: 14px; border: 0; background: {{ovBg}}; color: {{ovFg}}; font: inherit; font-weight: 600; cursor: pointer">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>Overlay
+          </button>
+
+          <sc-if value="{{reactOpen}}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; left: 0; bottom: 66px; z-index: 6; display: flex; gap: 6px; padding: 8px; border-radius: 14px; background: #1F2026; border: 1px solid #2A2C33">
+              <sc-for list="{{reactions}}" as="re" hint-placeholder-count="4">
+                <button onClick="{{re.send}}" aria-label="{{re.label}}" title="{{re.label}}" style="width: 44px; height: 44px; border-radius: 10px; border: 0; background: transparent; color: #FF8A5B; cursor: pointer; display: inline-flex; align-items: center; justify-content: center">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{re.d}}"/></svg>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+
+
+          <sc-if value="{{ovOpen}}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; left: 0; bottom: 66px; z-index: 6; width: 440px; max-width: 90vw; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: #1F2026; border: 1px solid #2A2C33">
+              <span style="font-weight: 600; font-size: 16px">Add an overlay</span>
+              <div role="radiogroup" aria-label="Who it's for" style="display: flex; flex-wrap: wrap; gap: 6px">
+                <sc-for list="{{ovTargets}}" as="o" hint-placeholder-count="3">
+                  <button role="radio" aria-checked="{{o.checked}}" onClick="{{o.pick}}" style="min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid {{o.border}}; background: transparent; color: #F2F2F3; font: inherit; font-size: 14px; cursor: pointer">{{o.name}}</button>
+                </sc-for>
+              </div>
+              <div style="display: flex; gap: 8px">
+                <input value="{{ovPrompt}}" onChange="{{setOvPrompt}}" placeholder="e.g. Add a hat to Ahsan's head" aria-label="Overlay prompt" style="flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #2A2C33; background: #0E0F12; color: #F2F2F3; font: inherit; font-size: 15px">
+                <button onClick="{{generate}}" style="min-height: 44px; padding: 0 16px; border-radius: 10px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">{{genLabel}}</button>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px">
+                <sc-for list="{{ovIdeas}}" as="idea" hint-placeholder-count="4">
+                  <button onClick="{{idea.use}}" style="min-height: 32px; padding: 0 10px; border-radius: 8px; border: 0; background: #17181C; color: #C9CBD2; font: inherit; font-size: 13px; cursor: pointer">{{idea.text}}</button>
+                </sc-for>
+              </div>
+              <sc-if value="{{hasOverlays}}" hint-placeholder-val="{{ false }}">
+                <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.5px; color: #A1A3AB">ON SCREEN NOW</span>
+                <sc-for list="{{overlayList}}" as="ol" hint-placeholder-count="1">
+                  <div style="display: flex; align-items: center; gap: 8px; font-size: 14px">
+                    <span style="flex: 1">{{ol.text}} <span style="color: #A1A3AB">· {{ol.who}}</span></span>
+                    <button onClick="{{ol.remove}}" style="min-height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #2A2C33; background: transparent; color: #F2F2F3; font: inherit; font-size: 13px; cursor: pointer">Remove</button>
+                  </div>
+                </sc-for>
+              </sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{sharePick}}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; left: 0; bottom: 66px; z-index: 6; width: 360px; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #1F2026; border: 1px solid #2A2C33">
+              <span style="font-weight: 600">Share</span>
+              <div role="radiogroup" aria-label="Share source" style="display: flex; gap: 6px">
+                <sc-for list="{{shareSources}}" as="o" hint-placeholder-count="3">
+                  <button role="radio" aria-checked="{{o.checked}}" onClick="{{o.pick}}" style="flex: 1; min-height: 40px; border-radius: 8px; border: 1px solid {{o.border}}; background: #17181C; color: #F2F2F3; font: inherit; font-size: 13px; cursor: pointer">{{o.label}}</button>
+                </sc-for>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px">
+                <span style="font-size: 14px">Show in the active video</span>
+                <button role="switch" aria-checked="{{shareRecAttr}}" aria-label="Show shared screen in the active video" onClick="{{toggleShareRec}}" style="width: 44px; height: 26px; flex-shrink: 0; border-radius: 999px; border: 0; padding: 3px; background: {{shareRecTrack}}; cursor: pointer; display: flex; justify-content: {{shareRecAlign}}"><span style="width: 20px; height: 20px; border-radius: 50%; background: #F2F2F3"></span></button>
+              </div>
+              <button onClick="{{startShare}}" style="min-height: 40px; border-radius: 8px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">Start sharing</button>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex: 0 0 auto">
+          <sc-if value="{{isIdle}}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{startRec}}" style="display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 22px; border-radius: 999px; border: 0; background: #F0524F; color: #0E0F12; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer">
+              <span style="width: 12px; height: 12px; border-radius: 50%; background: #0E0F12" aria-hidden="true"></span>Record
+            </button>
+          </sc-if>
+          <sc-if value="{{isCountdown}}" hint-placeholder-val="{{ false }}">
+            <span style="min-height: 48px; display: inline-flex; align-items: center; padding: 0 18px; font-weight: 600">Starting in {{countdown}}…</span>
+          </sc-if>
+          <sc-if value="{{isLive}}" hint-placeholder-val="{{ false }}">
+            <span style="font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 0 6px">{{elapsed}}</span>
+            <button onClick="{{togglePause}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 0; background: #1F2026; color: #F2F2F3; font: inherit; cursor: pointer">{{pauseLabel}}</button>
+            <button onClick="{{askStop}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 0; background: #F0524F; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">Stop</button>
+          </sc-if>
+          <sc-if value="{{stopAsk}}" hint-placeholder-val="{{ false }}">
+            <div role="alertdialog" aria-label="Stop recording for everyone?" style="position: absolute; left: 50%; bottom: 72px; transform: translateX(-50%); z-index: 7; width: 320px; padding: 16px; border-radius: 14px; background: #1F2026; border: 1px solid #2A2C33; display: flex; flex-direction: column; gap: 12px">
+              <span style="font-weight: 600">Stop recording for everyone?</span>
+              <div style="display: flex; gap: 8px">
+                <a href="Library.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; min-height: 40px; border-radius: 8px; background: #F0524F; color: #0E0F12; font-weight: 600; text-decoration: none">Stop</a>
+                <button onClick="{{cancelStop}}" style="flex: 1; min-height: 40px; border-radius: 8px; border: 1px solid #2A2C33; background: transparent; color: #F2F2F3; font: inherit; cursor: pointer">Keep recording</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex: 1 1 0; justify-content: flex-end">
+          <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 18px; border-radius: 14px; background: #1F2026; color: #F2F2F3; text-decoration: none; font-weight: 600">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>Leave
+          </a>
+        </div>
+      </div>
+    </main>
+    </sc-if>
+
+    <sc-if value="{{panelOpen}}" hint-placeholder-val="{{ true }}">
+      <aside aria-label="{{panelTitle}}" style="flex: {{asideFlex}}; display: flex; flex-direction: column; gap: 12px; padding: {{asidePad}}; border-radius: 16px; background: #17181C; overflow-y: auto; max-height: {{asideMax}}">
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600">{{panelTitle}}</h2>
+          <button onClick="{{closePanel}}" aria-label="Close panel" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #A1A3AB; cursor: pointer; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+
+        <sc-if value="{{onPeople}}" hint-placeholder-val="{{ true }}">
+          <h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 600">People</h3>
+          <span style="font-size: 13px; font-weight: 600; color: #A1A3AB">{{inRoomLabel}}</span>
+          <div style="display: flex; gap: 8px">
+            <input value="studiothree.app/s/k7f-2qx" readonly="readonly" aria-label="Invite link" style="flex: 1; min-width: 0; min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #2A2C33; background: #0E0F12; color: #F2F2F3; font: inherit; font-size: 14px">
+            <button onClick="{{copyLink}}" style="min-height: 40px; padding: 0 14px; border-radius: 8px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">{{copyLabel}}</button>
+          </div>
+          <sc-for list="{{peopleRows}}" as="r" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 10px; background: #1F2026">
+              <div style="display: flex; align-items: center; gap: 10px">
+                <span style="width: 32px; height: 32px; border-radius: 50%; background: {{r.color}}; display: inline-flex; align-items: center; justify-content: center; color: #0E0F12; font-weight: 600">{{r.initial}}</span>
+                <span style="flex: 1; display: flex; flex-direction: column">
+                  <span style="font-weight: 600">{{r.name}}</span>
+                </span>
+                <span style="font-size: 12px; color: {{r.statusColor}}">{{r.status}}</span>
+              </div>
+              <span style="font-size: 12px; color: #A1A3AB">{{r.stats}}</span>
+              <sc-if value="{{r.showFix}}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{r.fix}}" style="align-self: flex-start; min-height: 32px; padding: 0 12px; border-radius: 8px; border: 0; background: {{r.fixBg}}; color: {{r.fixFg}}; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">{{r.fixLabel}}</button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </sc-if>
+
+        <sc-if value="{{onPeople}}" hint-placeholder-val="{{ true }}">
+          <h3 style="margin: 12px 0 0; padding-top: 16px; border-top: 1px solid #2A2C33; font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 600">Plan</h3>
+      <div style="display: flex; flex-direction: column; border-radius: 12px; background: #17181C; padding: 4px 12px">
+        <button onClick="{{planToggle}}" aria-expanded="{{planExpanded}}" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-height: 40px; padding: 0; border: 0; background: transparent; color: #F2F2F3; font: inherit; text-align: left; cursor: pointer">
+          <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.5px; color: #A1A3AB">PLAN</span>
+          <span><span style="color: #FF8A5B; font-weight: 600">Now</span> {{planNow}}</span>
+          <span style="color: #A1A3AB">Next: {{planNext}}</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A1A3AB" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="margin-left: auto; transform: rotate({{planChevron}})"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <sc-if value="{{planOpen}}" hint-placeholder-val="{{ false }}">
+          <ol style="list-style: none; margin: 2px 0 0; padding: 0">
+            <sc-for list="{{planItems}}" as="i" hint-placeholder-count="7">
+              <li style="display: flex; align-items: center; gap: 6px; padding: 4px 0; border-top: 1px solid #2A2C33">
+                <button role="checkbox" aria-checked="{{i.doneAttr}}" aria-label="Done" onClick="{{i.toggleDone}}" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 8px; border: 1px solid {{i.checkBorder}}; background: {{i.checkBg}}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0E0F12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" stroke-opacity="{{i.checkOpacity}}"><path d="M5 12l5 5 9-10"/></svg>
+                </button>
+                <input value="{{i.title}}" onChange="{{i.rename}}" aria-label="Plan item" style="flex: 1; min-width: 0; min-height: 36px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: {{i.color}}; font: inherit; font-size: 14px; font-weight: {{i.weight}}; text-decoration: {{i.strike}}">
+                <sc-if value="{{i.isNow}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; font-weight: 600; color: #FF8A5B; padding: 0 6px">Now</span></sc-if>
+                <sc-if value="{{i.canStart}}" hint-placeholder-val="{{ true }}"><button onClick="{{i.makeNow}}" style="min-height: 30px; padding: 0 10px; border-radius: 6px; border: 0; background: #1F2026; color: #C9CBD2; font: inherit; font-size: 12px; cursor: pointer">Start</button></sc-if>
+                <button onClick="{{i.up}}" aria-label="Move up" style="width: 30px; height: 30px; border-radius: 6px; border: 0; background: transparent; color: #A1A3AB; cursor: pointer; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
+                <button onClick="{{i.down}}" aria-label="Move down" style="width: 30px; height: 30px; border-radius: 6px; border: 0; background: transparent; color: #A1A3AB; cursor: pointer; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+              </li>
+            </sc-for>
+          </ol>
+          <button onClick="{{planAdd}}" style="align-self: flex-start; min-height: 36px; margin: 4px 0; padding: 0 10px; border-radius: 8px; border: 0; background: transparent; color: #FF8A5B; font: inherit; font-size: 14px; cursor: pointer">Add item</button>
+        </sc-if>
+      </div>
+        </sc-if>
+        <sc-if value="{{onGames}}" hint-placeholder-val="{{ false }}">
+          <sc-for list="{{games}}" as="g" hint-placeholder-count="8">
+            <div style="display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 10px; background: {{g.bg}}">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="flex: 1; font-weight: 600; color: {{g.titleColor}}">{{g.name}}</span>
+                <sc-if value="{{g.canStart}}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{g.start}}" style="min-height: 32px; padding: 0 12px; border-radius: 8px; border: 0; background: #2A2C33; color: #F2F2F3; font: inherit; font-size: 13px; cursor: pointer">Start</button>
+                </sc-if>
+              </div>
+              <span style="font-size: 13px; color: #A1A3AB">{{g.desc}}</span>
+              <sc-if value="{{g.showRec}}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{g.flipRec}}" aria-pressed="{{g.recAttr}}" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; min-height: 28px; padding: 0; border: 0; background: transparent; color: #C9CBD2; font: inherit; font-size: 12px; cursor: pointer">
+                  <span style="width: 28px; height: 16px; border-radius: 999px; padding: 2px; box-sizing: border-box; background: {{g.recTrack}}; display: flex; justify-content: {{g.recAlign}}"><span style="width: 12px; height: 12px; border-radius: 50%; background: #F2F2F3"></span></span>
+                  {{g.recLabel}}
+                </button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </sc-if>
+
+        <sc-if value="{{onTopics}}" hint-placeholder-val="{{ false }}">
+          <div role="group" aria-label="Filter topics" style="display: flex; flex-wrap: wrap; gap: 6px">
+            <sc-for list="{{filters}}" as="f" hint-placeholder-count="3">
+              <button onClick="{{f.pick}}" aria-pressed="{{f.pressed}}" style="min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid {{f.border}}; background: transparent; color: {{f.fg}}; font: inherit; font-size: 13px; cursor: pointer">{{f.label}}</button>
+            </sc-for>
+          </div>
+          <sc-for list="{{topics}}" as="t" hint-placeholder-count="4">
+            <div style="padding: 12px; border-radius: 10px; background: #1F2026; display: flex; flex-direction: column; gap: 6px">
+              <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+                <span style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{t.tagBg}}; color: {{t.tagFg}}">{{t.tag}}</span>
+              </span>
+              <span style="font-weight: 600">{{t.title}}</span>
+              <span style="font-size: 13px; color: #C9CBD2">{{t.debate}}</span>
+              <button onClick="{{t.act}}" aria-pressed="{{t.pressed}}" style="align-self: flex-start; min-height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid {{t.border}}; background: transparent; color: {{t.fg}}; font: inherit; font-size: 13px; cursor: pointer">{{t.actLabel}}</button>
+            </div>
+          </sc-for>
+        </sc-if>
+
+        <sc-if value="{{onSounds}}" hint-placeholder-val="{{ false }}">
+          <h3 style="margin: 12px 0 0; padding-top: 16px; border-top: 1px solid #2A2C33; font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 600">Sound effects</h3>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+            <sc-for list="{{sounds}}" as="sd" hint-placeholder-count="9">
+              <button onClick="{{sd.play}}" style="position: relative; min-height: 72px; padding: 8px; border-radius: 10px; border: 1px solid {{sd.border}}; background: #1F2026; color: #F2F2F3; font: inherit; font-size: 13px; cursor: pointer; display: flex; align-items: flex-end">
+                <span style="position: absolute; left: 8px; top: 6px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: #FF8A5B">{{sd.key}}</span>
+                {{sd.name}}
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{onSettings}}" hint-placeholder-val="{{ false }}">
+          <h3 style="margin: 12px 0 0; padding-top: 16px; border-top: 1px solid #2A2C33; font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 600">Your audio and video</h3>
+          <sc-for list="{{settingGroups}}" as="sg" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <span style="font-size: 13px; color: #A1A3AB">{{sg.label}}</span>
+              <div style="display: flex; gap: 4px; background: #0E0F12; padding: 4px; border-radius: 10px">
+                <sc-for list="{{sg.options}}" as="o" hint-placeholder-count="3">
+                  <button onClick="{{o.pick}}" aria-pressed="{{o.pressed}}" style="flex: 1; min-height: 36px; border: 0; border-radius: 7px; font: inherit; font-size: 13px; cursor: pointer; background: {{o.bg}}; color: {{o.fg}}">{{o.label}}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #A1A3AB">Camera<select style="min-height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #2A2C33; background: #0E0F12; color: #F2F2F3; font: inherit; font-size: 14px"><option>FaceTime HD Camera</option></select></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #A1A3AB">Microphone<select style="min-height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #2A2C33; background: #0E0F12; color: #F2F2F3; font: inherit; font-size: 14px"><option>USB Microphone</option></select></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #A1A3AB">Speakers<select style="min-height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #2A2C33; background: #0E0F12; color: #F2F2F3; font: inherit; font-size: 14px"><option>AirPods Pro</option></select></label>
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: #1F2026; border: 1px solid {{fixBorder}}">
+            <sc-if value="{{fixIdle}}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; align-items: center; gap: 10px">
+                <span style="flex: 1; font-weight: 600">Something not working?</span>
+                <button onClick="{{openAsk}}" style="min-height: 38px; padding: 0 14px; border-radius: 8px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">Fix this</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{fixAsk}}" hint-placeholder-val="{{ false }}">
+              <span style="font-weight: 600">What's happening?</span>
+              <sc-for list="{{symptoms}}" as="sy" hint-placeholder-count="5">
+                <button onClick="{{sy.pick}}" style="min-height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid #2A2C33; background: #17181C; color: #F2F2F3; font: inherit; font-size: 14px; text-align: left; cursor: pointer">{{sy.label}}</button>
+              </sc-for>
+            </sc-if>
+            <sc-if value="{{fixRunning}}" hint-placeholder-val="{{ false }}">
+              <span style="font-weight: 600">Checking {{diagTitle}}</span>
+            </sc-if>
+            <sc-if value="{{fixDone}}" hint-placeholder-val="{{ false }}">
+              <sc-for list="{{diagSteps}}" as="st" hint-placeholder-count="2">
+                <span style="display: flex; align-items: center; gap: 8px; font-size: 13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7FD6A4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>{{st}}</span>
+              </sc-for>
+              <span style="padding: 10px 12px; border-radius: 8px; background: #13261C; color: #CDEFD9; font-size: 13px"><strong>Fixed for you:</strong> {{diagResult}}</span>
+              <div style="display: flex; gap: 8px">
+                <button onClick="{{closeFix}}" style="min-height: 38px; padding: 0 12px; border-radius: 8px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">That fixed it</button>
+                <button onClick="{{closeFix}}" style="min-height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid #2A2C33; background: transparent; color: #F2F2F3; font: inherit; cursor: pointer">Ask the host for help</button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </aside>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{hideStage}}" hint-placeholder-val="{{ false }}">
+  <div style="position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 24px">
+    <div style="display: flex; gap: 8px; flex: 1 1 0; position: relative">
+      <button onClick="{{toggleMute}}" aria-label="{{muteAria}}" title="{{muteAria}}" aria-pressed="{{mutePressed}}" style="width: 52px; height: 52px; border-radius: 14px; border: 0; background: {{muteBg}}; color: {{muteFg}}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/><path d="M4 4l16 16" stroke-opacity="{{muteSlash}}"/></svg>
+      </button>
+      <button onClick="{{toggleCam}}" aria-label="{{camAria}}" title="{{camAria}}" aria-pressed="{{camPressed}}" style="width: 52px; height: 52px; border-radius: 14px; border: 0; background: {{camBg}}; color: {{camFg}}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/><path d="M3 3l18 18" stroke-opacity="{{camSlash}}"/></svg>
+      </button>
+      <button onClick="{{shareClick}}" aria-label="{{shareAria}}" title="{{shareAria}}" aria-pressed="{{sharePressed}}" style="width: 52px; height: 52px; border-radius: 14px; border: 0; background: {{shareBg}}; color: {{shareFg}}; cursor: pointer; display: inline-flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M12 13V8M9.5 10.5L12 8l2.5 2.5"/></svg>
+      </button>
+      <button onClick="{{toggleReact}}" aria-label="React or raise hand" title="React or raise hand" aria-expanded="{{reactExpanded}}" style="width: 52px; height: 52px; border-radius: 14px; border: 0; background: {{reactBg}}; color: #F2F2F3; cursor: pointer; display: inline-flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 3 4 3 4-3 4-3M9 9h.01M15 9h.01"/></svg>
+      </button>
+      <button onClick="{{toggleOverlay}}" aria-expanded="{{ovExpanded}}" style="display: inline-flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 16px; border-radius: 14px; border: 0; background: {{ovBg}}; color: {{ovFg}}; font: inherit; font-weight: 600; cursor: pointer">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>Overlay
+      </button>
+
+      <sc-if value="{{reactOpen}}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; left: 0; bottom: 66px; z-index: 6; display: flex; gap: 6px; padding: 8px; border-radius: 14px; background: #1F2026; border: 1px solid #2A2C33">
+          <sc-for list="{{reactions}}" as="re" hint-placeholder-count="4">
+            <button onClick="{{re.send}}" aria-label="{{re.label}}" title="{{re.label}}" style="width: 44px; height: 44px; border-radius: 10px; border: 0; background: transparent; color: #FF8A5B; cursor: pointer; display: inline-flex; align-items: center; justify-content: center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{re.d}}"/></svg>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+
+
+      <sc-if value="{{ovOpen}}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; left: 0; bottom: 66px; z-index: 6; width: 440px; max-width: 90vw; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: #1F2026; border: 1px solid #2A2C33">
+          <span style="font-weight: 600; font-size: 16px">Add an overlay</span>
+          <div role="radiogroup" aria-label="Who it's for" style="display: flex; flex-wrap: wrap; gap: 6px">
+            <sc-for list="{{ovTargets}}" as="o" hint-placeholder-count="3">
+              <button role="radio" aria-checked="{{o.checked}}" onClick="{{o.pick}}" style="min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid {{o.border}}; background: transparent; color: #F2F2F3; font: inherit; font-size: 14px; cursor: pointer">{{o.name}}</button>
+            </sc-for>
+          </div>
+          <div style="display: flex; gap: 8px">
+            <input value="{{ovPrompt}}" onChange="{{setOvPrompt}}" placeholder="e.g. Add a hat to Ahsan's head" aria-label="Overlay prompt" style="flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #2A2C33; background: #0E0F12; color: #F2F2F3; font: inherit; font-size: 15px">
+            <button onClick="{{generate}}" style="min-height: 44px; padding: 0 16px; border-radius: 10px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">{{genLabel}}</button>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px">
+            <sc-for list="{{ovIdeas}}" as="idea" hint-placeholder-count="4">
+              <button onClick="{{idea.use}}" style="min-height: 32px; padding: 0 10px; border-radius: 8px; border: 0; background: #17181C; color: #C9CBD2; font: inherit; font-size: 13px; cursor: pointer">{{idea.text}}</button>
+            </sc-for>
+          </div>
+          <sc-if value="{{hasOverlays}}" hint-placeholder-val="{{ false }}">
+            <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.5px; color: #A1A3AB">ON SCREEN NOW</span>
+            <sc-for list="{{overlayList}}" as="ol" hint-placeholder-count="1">
+              <div style="display: flex; align-items: center; gap: 8px; font-size: 14px">
+                <span style="flex: 1">{{ol.text}} <span style="color: #A1A3AB">· {{ol.who}}</span></span>
+                <button onClick="{{ol.remove}}" style="min-height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #2A2C33; background: transparent; color: #F2F2F3; font: inherit; font-size: 13px; cursor: pointer">Remove</button>
+              </div>
+            </sc-for>
+          </sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{sharePick}}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; left: 0; bottom: 66px; z-index: 6; width: 360px; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; background: #1F2026; border: 1px solid #2A2C33">
+          <span style="font-weight: 600">Share</span>
+          <div role="radiogroup" aria-label="Share source" style="display: flex; gap: 6px">
+            <sc-for list="{{shareSources}}" as="o" hint-placeholder-count="3">
+              <button role="radio" aria-checked="{{o.checked}}" onClick="{{o.pick}}" style="flex: 1; min-height: 40px; border-radius: 8px; border: 1px solid {{o.border}}; background: #17181C; color: #F2F2F3; font: inherit; font-size: 13px; cursor: pointer">{{o.label}}</button>
+            </sc-for>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px">
+            <span style="font-size: 14px">Show in the active video</span>
+            <button role="switch" aria-checked="{{shareRecAttr}}" aria-label="Show shared screen in the active video" onClick="{{toggleShareRec}}" style="width: 44px; height: 26px; flex-shrink: 0; border-radius: 999px; border: 0; padding: 3px; background: {{shareRecTrack}}; cursor: pointer; display: flex; justify-content: {{shareRecAlign}}"><span style="width: 20px; height: 20px; border-radius: 50%; background: #F2F2F3"></span></button>
+          </div>
+          <button onClick="{{startShare}}" style="min-height: 40px; border-radius: 8px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">Start sharing</button>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex: 0 0 auto">
+      <sc-if value="{{isIdle}}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{startRec}}" style="display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 22px; border-radius: 999px; border: 0; background: #F0524F; color: #0E0F12; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer">
+          <span style="width: 12px; height: 12px; border-radius: 50%; background: #0E0F12" aria-hidden="true"></span>Record
+        </button>
+      </sc-if>
+      <sc-if value="{{isCountdown}}" hint-placeholder-val="{{ false }}">
+        <span style="min-height: 48px; display: inline-flex; align-items: center; padding: 0 18px; font-weight: 600">Starting in {{countdown}}…</span>
+      </sc-if>
+      <sc-if value="{{isLive}}" hint-placeholder-val="{{ false }}">
+        <span style="font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 0 6px">{{elapsed}}</span>
+        <button onClick="{{togglePause}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 0; background: #1F2026; color: #F2F2F3; font: inherit; cursor: pointer">{{pauseLabel}}</button>
+        <button onClick="{{askStop}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 0; background: #F0524F; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">Stop</button>
+      </sc-if>
+      <sc-if value="{{stopAsk}}" hint-placeholder-val="{{ false }}">
+        <div role="alertdialog" aria-label="Stop recording for everyone?" style="position: absolute; left: 50%; bottom: 72px; transform: translateX(-50%); z-index: 7; width: 320px; padding: 16px; border-radius: 14px; background: #1F2026; border: 1px solid #2A2C33; display: flex; flex-direction: column; gap: 12px">
+          <span style="font-weight: 600">Stop recording for everyone?</span>
+          <div style="display: flex; gap: 8px">
+            <a href="Library.dc.html" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; min-height: 40px; border-radius: 8px; background: #F0524F; color: #0E0F12; font-weight: 600; text-decoration: none">Stop</a>
+            <button onClick="{{cancelStop}}" style="flex: 1; min-height: 40px; border-radius: 8px; border: 1px solid #2A2C33; background: transparent; color: #F2F2F3; font: inherit; cursor: pointer">Keep recording</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="display: flex; gap: 10px; flex: 1 1 0; justify-content: flex-end">
+      <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 18px; border-radius: 14px; background: #1F2026; color: #F2F2F3; text-decoration: none; font-weight: 600">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>Leave
+      </a>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"role":{"editor":"enum","options":["host","guest"],"default":"guest"},"present":{"editor":"int","min":1,"max":3,"default":3},"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const host = (props.role ?? 'guest') === 'host';
+    this.state = {
+      rec: 'idle', countdown: 3, startAt: 0, pausedMs: 0, startedBy: null, stopAsk: false, filesOpen: false,
+      panel: null, triviaIdx: 0, triviaShown: false, ovOpen: false, ovTarget: 'Ahsan', ovPrompt: '', ovGen: false, ovGenWho: null, overlays: [], mode: 'room', game: null,
+      muted: false, camOn: true, reactOpen: false, float: null, hands: ['[Friend 2]'],
+      sharePick: false, shareSrc: 'tab', shareRec: true, sound: null, copied: false, helped: false,
+      recGames: { 'Imposter': false, 'Tier list': true, 'Fast Money, no sound': true, 'Blind ranking': true, 'Trivia': true, 'Thermostat': true, 'Thermostat: Questions': true, 'Name 3 in 5': true, 'Guess the Sound': true, 'Tell Me Without Telling Me': true, 'Guess the Price': true, 'Imposter question': true, 'Auction draft': true, 'Snake draft': true, 'Most Likely To': false, 'Red Flag or Green Flag': false, 'Higher or Lower': true },
+      filter: 'all', pinned: null, votes: { t2: true },
+      nc: 'standard', bg: 'set', layout: 'room', fix: 'idle', symptom: null,
+      plan: [{ id: 'a', title: 'Cold open and catch-up', done: true }, { id: 'b', title: 'Lead story: [TOPIC]', done: true }, { id: 'c', title: 'Listener questions', done: false }, { id: 'd', title: 'Game: Imposter', done: false }, { id: 'e', title: 'Debate block', done: false }, { id: 'f', title: 'Game: Tier list', done: false }, { id: 'g', title: 'Wrap and shout-outs', done: false }],
+      nowId: 'c', planOpen: false
+    };
+  }
+  componentDidMount() { this.tick = setInterval(() => { if (this.state.rec === 'rec') this.forceUpdate(); }, 1000); }
+  componentWillUnmount() { clearInterval(this.tick); }
+  me() { return (this.props.role ?? 'guest') === 'host' ? 'Ahsan' : '[Friend 1]'; }
+  startRec() {
+    this.setState({ rec: 'countdown', countdown: 3 });
+    setTimeout(() => this.setState({ countdown: 2 }), 900);
+    setTimeout(() => this.setState({ countdown: 1 }), 1800);
+    setTimeout(() => this.setState({ rec: 'rec', startAt: Date.now(), pausedMs: 0, startedBy: this.me() }), 2700);
+  }
+  fmt(ms) {
+    const t = Math.floor(ms / 1000), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+    const p = (n) => (n < 10 ? '0' : '') + n;
+    return p(h) + ':' + p(m) + ':' + p(s);
+  }
+  seg(list, key) {
+    return list.map((o) => {
+      const on = this.state[key] === o.id;
+      return { label: o.label, pressed: on ? 'true' : 'false', bg: on ? '#2A2C33' : 'transparent', fg: on ? '#F2F2F3' : '#A1A3AB', pick: () => this.setState({ [key]: o.id }) };
+    });
+  }
+  renderVals() {
+    const s = this.state;
+    const isHost = (this.props.role ?? 'guest') === 'host';
+    const me = this.me();
+    const n = Math.min(3, Math.max(1, Number(this.props.present ?? 3)));
+    const roster = [
+      { name: 'Ahsan', short: 'Ahsan', shirt: '#3B4A6B', skin: '#C89A7A', color: '#5B8CFF', role: 'Host' },
+      { name: '[Friend 1]', short: 'Friend 1', shirt: '#6B3B4A', skin: '#8C6650', color: '#FF7A45', role: 'Guest' },
+      { name: '[Friend 2]', short: 'Friend 2', shirt: '#3B6B5A', skin: '#E0B896', color: '#C9B37E', role: 'Guest' }
+    ].slice(0, n);
+    const spots = { 1: [40], 2: [20, 60], 3: [7, 40, 73] };
+    const seats = roster.map((r, i) => ({
+      label: r.name + (r.name === me ? ' (you)' : ''), short: r.short, shirt: r.shirt, skin: r.skin,
+      body: spots[n][i] + '%', head: (spots[n][i] + 4.5) + '%', mic: (spots[n][i] + 17) + '%',
+      ring: r.name === me ? '#FF7A45' : 'transparent', hand: s.hands.indexOf(r.name) >= 0
+    }));
+    const meIdx = Math.max(0, roster.findIndex((r) => r.name === me));
+
+    const gamesData = [
+      { name: 'Imposter', min: 3, href: 'GameImposter.dc.html', rules: { 3: 'Two know the word, one bluffs. Vote after 3 rounds.' }, short: 'Find who doesn\u2019t know the word.' },
+      { name: 'Tier list', min: 1, href: 'GameTierList.dc.html', rules: { 1: 'Rank solo and explain each pick.', 2: 'Each builds a list, then compare.', 3: 'One group list; majority breaks ties.' }, short: 'Rank anything from S to F.' },
+      { name: 'Fast Money, no sound', min: 2, href: 'GameFastMoney.dc.html', rules: { 2: 'One asks out loud; the other can\u2019t hear and reads lips.', 3: 'One asks out loud; the other two can\u2019t hear and race to read lips.' }, short: 'Read the asker\u2019s lips.' },
+      { name: 'Blind ranking', min: 1, href: '', rules: { 1: 'Rank 1–5 alone.', 2: 'Rank side by side, compare at the end.', 3: 'Three rankings revealed together.' }, short: 'Rank 1\u20135 without seeing what\u2019s next.' },
+      { name: 'Trivia', min: 1, href: '', rules: { 1: 'Guess, then reveal.', 2: 'Closest guess wins.', 3: 'Closest guess wins.' }, short: 'Guess the answer, reveal when ready.' },
+      { name: 'Thermostat', min: 2, href: '', rules: { 2: 'One shows a secret number with body language; the other guesses.', 3: 'One shows; the other two race to guess.' }, short: 'Show a secret number without words.' },
+      { name: 'Thermostat: Questions', min: 2, href: '', rules: { 2: 'One holds a secret number; the other asks questions, then guesses.', 3: 'One holds the number; the other two take turns asking and race to guess.' }, short: 'Ask questions to find their secret number.' },
+      { name: 'Name 3 in 5', min: 1, href: '', rules: { 1: 'Beat the clock.', 2: 'Take turns; the other judges.', 3: 'Take turns; the others judge.' }, short: 'Name three things in five seconds.' },
+      { name: 'Guess the Sound', min: 2, href: '', rules: { 2: 'One makes a sound off camera; the other guesses.', 3: 'One makes a sound; the other two race.' }, short: 'Guess the sound in three seconds.' },
+      { name: 'Tell Me Without Telling Me', min: 2, href: '', rules: { 2: 'Describe the word under a twist rule; the other guesses.', 3: 'Describe it; the other two race.' }, short: 'Describe a word under a twist rule.' },
+      { name: 'Guess the Price', min: 1, href: '', rules: { 1: 'Get within 10%.', 2: 'Closest without going over.', 3: 'Closest without going over.' }, short: 'Closest without going over wins.' },
+      { name: 'Imposter question', min: 3, href: '', rules: { 3: 'Everyone answers the same question, except the imposter, who secretly got a different one. Reveal answers, then vote.' }, short: 'Spot who got a different question.' },
+      { name: 'Auction draft', min: 2, href: '', rules: { 2: 'Each of you has $20 to bid on items and build the perfect list of 5.', 3: 'Each of you has $20 to bid on items and build the perfect list of 5; the best list wins a vote.' }, short: '$20 each. Bid your way to the best 5.' },
+      { name: 'Snake draft', min: 2, href: '', rules: { 2: '1v1 snake draft.', 3: 'Three-team snake draft.' }, short: 'Take turns picking the best list.' },
+      { name: 'Most Likely To', min: 3, href: '', rules: { 3: 'Everyone points at who fits the prompt.' }, short: 'Point at who fits.' },
+      { name: 'Red Flag or Green Flag', min: 1, href: '', rules: { 1: 'Solo verdicts.', 2: 'A split starts a 30 s debate.', 3: 'Majority wins; odd one out defends.' }, short: 'Vote red or green.' },
+      { name: 'Higher or Lower', min: 1, href: '', rules: { 1: 'Keep your streak.', 2: 'Take turns; best streak wins.', 3: 'Take turns; best streak wins.' }, short: 'Guess higher or lower.' },
+    ];
+    const cur = gamesData.find((g) => g.name === s.game);
+    const gameRec = cur ? s.recGames[cur.name] : false;
+    const sharing = s.mode === 'screen';
+    let active = 'Everyone in the room';
+    if (s.mode === 'game') active = gameRec ? s.game + ' board with everyone’s faces' : 'Everyone in the room (game screen hidden)';
+    if (sharing) active = s.shareRec ? 'Shared screen with everyone’s faces' : 'Everyone in the room (shared screen hidden)';
+
+    const topicData = [
+      { id: 't1', kind: 'trend', title: 'GTA 6 is finally close. Is the hype justified?', why: 'In the news this week', debate: 'Overhyped, or worth the wait?' },
+      { id: 't2', kind: 'channel', title: 'Is a hot dog a sandwich?', why: 'Like Ep 9, a top episode', debate: 'Pick a side and defend it' },
+      { id: 't3', kind: 'trend', title: 'Word Imposter is the new party game', why: 'Spreading on social', debate: 'Best party game, or a fad?' },
+      { id: 't4', kind: 'channel', title: '$1M to give up your phone for a year?', why: 'Hypotheticals hold viewers longest', debate: 'Would you take it?' }
+    ];
+    const pinnedTopic = topicData.find((t) => t.id === s.pinned);
+
+    const P = {
+      people: 'M9 4.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6',
+      games: 'M7 7h10a5 5 0 0 1 0 11H7A5 5 0 0 1 7 7zM7 11v3M5.5 12.5h3M16 11.5h.01M18 13.5h.01',
+      topics: 'M4 5h16v11H9l-5 4z',
+      sounds: 'M4 9v6h4l5 4V5L8 9zM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12',
+      settings: 'M4 7h10M18 7h2M4 17h4M12 17h8M16 5a2 2 0 1 0 0 4a2 2 0 1 0 0-4M10 15a2 2 0 1 0 0 4a2 2 0 1 0 0-4'
+    };
+    const panelDefs = [{ id: 'games', label: 'Games' }, { id: 'topics', label: 'Topics' }, { id: 'people', label: 'Setup' }];
+    const reactDefs = [
+      { label: 'Love', d: 'M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z' },
+      { label: 'Laugh', d: 'M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M8 14s1.5 3 4 3 4-3 4-3M9 9h.01M15 9h.01' },
+      { label: 'Agree', d: 'M7 11v9H4v-9zM7 11l4-7a2 2 0 0 1 2 2v4h5a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 16.8 20H7' },
+      { label: 'Star', d: 'M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z' }
+    ];
+    const handUp = s.hands.indexOf(me) >= 0;
+    const diag = {
+      mic: { title: 'why others can’t hear you', steps: ['Mic permission: allowed', 'Input level dropped after your mic was bumped'], result: 'raised your input gain back to 65%.' },
+      hear: { title: 'why you can’t hear the others', steps: ['Others are sending audio', 'Your AirPods disconnected'], result: 'reconnected your AirPods at 70% volume.' },
+      echo: { title: 'the echo', steps: ['Headphones: not detected', 'Your mic is picking up your speakers'], result: 'turned on Strong noise cancellation. Headphones fix it fully.' },
+      video: { title: 'why your video froze', steps: ['Camera permission: allowed', 'The camera stopped sending frames'], result: 'restarted your camera. Your recording kept going.' },
+      choppy: { title: 'why it’s choppy', steps: ['Upload dropped to 2 Mbps', 'Wi-Fi signal: weak'], result: 'lowered the live call to 720p. Your recording stays 1080p.' }
+    };
+    const d = diag[s.symptom] || diag.mic;
+    const elapsedMs = s.rec === 'rec' ? Date.now() - s.startAt : s.pausedMs;
+
+    return {
+      isHost: isHost,
+      roleLabel: isHost ? 'Host' : 'Guest', roleBg: isHost ? '#2A1F18' : '#1F2026', roleFg: isHost ? '#FFB08F' : '#C9CBD2',
+      isIdle: s.rec === 'idle', isCountdown: s.rec === 'countdown', isLive: s.rec === 'rec' || s.rec === 'paused', isRec: s.rec === 'rec' || s.rec === 'paused',
+      countdown: s.countdown,
+      startRec: () => this.startRec(),
+      elapsed: this.fmt(elapsedMs),
+      pauseLabel: s.rec === 'paused' ? 'Resume' : 'Pause',
+      togglePause: () => s.rec === 'paused' ? this.setState({ rec: 'rec', startAt: Date.now() - s.pausedMs }) : this.setState({ rec: 'paused', pausedMs: Date.now() - s.startAt }),
+      stopAsk: s.stopAsk, askStop: () => this.setState({ stopAsk: true }), cancelStop: () => this.setState({ stopAsk: false }),
+      startedNote: s.startedBy ? 'Started by ' + (s.startedBy === me ? 'you' : s.startedBy) + (s.rec === 'paused' ? ' · paused' : '') : (s.rec === 'idle' ? 'Anyone can start the recording' : ''),
+      videoCount: n + 1,
+      filesOpen: s.filesOpen, filesExpanded: s.filesOpen ? 'true' : 'false', toggleFiles: () => this.setState({ filesOpen: !s.filesOpen }),
+      videoList: [{ name: 'Active video', desc: 'Now: ' + active }].concat(roster.map((r) => ({ name: r.name, desc: '' }))),
+
+      seats: seats, tiles: s.layout === 'tiles' && s.mode === 'room',
+      dividers: n === 3 ? ['33.333%', '66.666%'] : (n === 2 ? ['50%'] : []),
+      modeRoom: s.mode === 'room', modeActivity: s.mode !== 'room', modeScreen: sharing, modeGame: s.mode === 'game',
+      activityBg: sharing ? '#F2F2F3' : '#17181C',
+      activityBadge: 'Active video: ' + active,
+      gameName: s.game || '', gameRule: '', gameHref: cur ? cur.href : '',
+      endActivity: () => this.setState({ mode: 'room', game: null }),
+      hasPinned: !!pinnedTopic, pinnedTitle: pinnedTopic ? pinnedTopic.title : '',
+      hasFloat: !!s.float, floatPath: s.float || '', floatLeft: s.mode === 'room' ? (spots[n][meIdx] + 7) + '%' : '86%',
+      hasSound: !!s.sound, soundName: s.sound || '',
+
+      muteAria: s.muted ? 'Unmute' : 'Mute', mutePressed: s.muted ? 'true' : 'false', muteBg: s.muted ? '#F0524F' : '#1F2026', muteFg: s.muted ? '#0E0F12' : '#F2F2F3', muteSlash: s.muted ? 1 : 0,
+      toggleMute: () => this.setState({ muted: !s.muted }),
+      camAria: s.camOn ? 'Turn camera off' : 'Turn camera on', camPressed: s.camOn ? 'false' : 'true', camBg: s.camOn ? '#1F2026' : '#F0524F', camFg: s.camOn ? '#F2F2F3' : '#0E0F12', camSlash: s.camOn ? 0 : 1,
+      toggleCam: () => this.setState({ camOn: !s.camOn }),
+      shareAria: sharing ? 'Stop sharing' : 'Share screen', sharePressed: sharing ? 'true' : 'false', shareBg: sharing ? '#FF7A45' : '#1F2026', shareFg: sharing ? '#0E0F12' : '#F2F2F3',
+      shareClick: () => sharing ? this.setState({ mode: 'room' }) : this.setState({ sharePick: !s.sharePick, reactOpen: false, ovOpen: false }),
+      sharePick: s.sharePick,
+      shareSources: [{ id: 'tab', label: 'Tab' }, { id: 'window', label: 'Window' }, { id: 'screen', label: 'Screen' }].map((o) => ({ label: o.label, checked: s.shareSrc === o.id ? 'true' : 'false', border: s.shareSrc === o.id ? '#FF7A45' : '#2A2C33', pick: () => this.setState({ shareSrc: o.id }) })),
+      shareRecAttr: s.shareRec ? 'true' : 'false', shareRecTrack: s.shareRec ? '#FF7A45' : '#3A3C44', shareRecAlign: s.shareRec ? 'flex-end' : 'flex-start',
+      toggleShareRec: () => this.setState({ shareRec: !s.shareRec }),
+      startShare: () => this.setState({ mode: 'screen', sharePick: false }),
+
+      reactOpen: s.reactOpen, reactExpanded: s.reactOpen ? 'true' : 'false', reactBg: s.reactOpen ? '#2A2C33' : '#1F2026',
+      toggleReact: () => this.setState({ reactOpen: !s.reactOpen, sharePick: false, ovOpen: false }),
+      reactions: reactDefs.map((r) => ({ label: r.label, d: r.d, send: () => { this.setState({ float: r.d, reactOpen: false }); setTimeout(() => this.setState({ float: null }), 1600); } })),
+      handPressed: handUp ? 'true' : 'false', handBg: handUp ? '#FFC58A' : 'transparent', handFg: handUp ? '#0E0F12' : '#F2F2F3', handLabel: handUp ? 'Lower hand' : 'Raise hand',
+      toggleHand: () => this.setState({ hands: handUp ? s.hands.filter((h) => h !== me) : s.hands.concat([me]), reactOpen: false }),
+
+      panelOpen: !!s.panel,
+      showStage: !(s.panel === 'games' || s.panel === 'topics'),
+      hideStage: s.panel === 'games' || s.panel === 'topics',
+      showMini: false,
+      asideFlex: (s.panel === 'games' || s.panel === 'topics') ? '1 1 0' : '0 0 340px',
+      asidePad: (s.panel === 'games' || s.panel === 'topics') ? '24px' : '16px',
+      asideMax: (s.panel === 'games' || s.panel === 'topics') ? 'none' : '720px',
+      panelTitle: (panelDefs.find((p) => p.id === s.panel) || { label: '' }).label,
+      closePanel: () => this.setState({ panel: null }),
+      panelButtons: panelDefs.map((p) => ({ label: p.label, d: p.id === 'people' ? P.settings : P[p.id], pressed: s.panel === p.id ? 'true' : 'false', bg: s.panel === p.id ? '#FF7A45' : '#1F2026', fg: s.panel === p.id ? '#0E0F12' : '#F2F2F3', dot: p.id === 'people' && s.hands.length > 0 && s.panel !== 'people', toggle: () => this.setState({ panel: s.panel === p.id ? null : p.id }) })),
+      inRoomLabel: n + (n === 1 ? ' person' : ' people') + ' in the room',
+      onPeople: s.panel === 'people', onGames: s.panel === 'games', onTopics: s.panel === 'topics', onSounds: s.panel === 'people', onSettings: s.panel === 'people',
+
+      copyLabel: s.copied ? 'Copied' : 'Copy', copyLink: () => this.setState({ copied: true }),
+      counts: [1, 2, 3].map((k) => ({ n: k, checked: k === n ? 'true' : 'false', bg: k === n ? '#FF7A45' : '#0E0F12', fg: k === n ? '#0E0F12' : '#C9CBD2', pick: () => this.setState({ people: k }) })),
+      hasHands: s.hands.length > 0,
+      handList: s.hands.map((h, i) => ({ order: i + 1, name: h === me ? h + ' (you)' : h, action: isHost ? 'Give the floor' : (h === me ? 'Lower' : 'Waiting'), give: () => (isHost || h === me) && this.setState({ hands: s.hands.filter((x) => x !== h) }) })),
+      peopleRows: roster.map((r, i) => {
+        const issue = i === 2;
+        return {
+          name: r.name + (r.name === me ? ' (you)' : ''), role: r.role, initial: r.name.charAt(r.name.charAt(0) === '[' ? 1 : 0), color: r.color,
+          status: issue && !s.helped ? 'Low space' : 'All good', statusColor: issue && !s.helped ? '#FFC58A' : '#7FD6A4',
+          stats: ['96% uploaded · 18 Mbps up · 38 ms', '94% uploaded · 12 Mbps up · 52 ms', '88% uploaded · 9 Mbps up · 23 GB free'][i],
+          showFix: issue && isHost, fixLabel: s.helped ? 'Fix sent' : 'Fix this for them', fixBg: s.helped ? '#13261C' : '#FF7A45', fixFg: s.helped ? '#CDEFD9' : '#0E0F12',
+          fix: () => this.setState({ helped: true })
+        };
+      }),
+
+      gamesHeader: gamesData.filter((g) => n >= g.min).length + ' of ' + gamesData.length + ' playable' + (isHost ? '' : ' · the host starts games'),
+      games: gamesData.map((g) => {
+        const ok = n >= g.min, on = s.recGames[g.name];
+        return {
+          name: g.name, desc: ok ? g.short : 'Needs ' + g.min + ' players', bg: ok ? '#1F2026' : 'transparent', titleColor: ok ? '#F2F2F3' : '#8A8D96',
+          canStart: ok && isHost, start: () => this.setState({ mode: 'game', game: g.name, panel: null }),
+          showRec: ok && isHost, recAttr: on ? 'true' : 'false', recLabel: on ? 'Board on recording' : 'Faces only',
+          recTrack: on ? '#FF7A45' : '#3A3C44', recAlign: on ? 'flex-end' : 'flex-start',
+          flipRec: () => this.setState({ recGames: Object.assign({}, s.recGames, { [g.name]: !on }) })
+        };
+      }),
+
+      filters: [{ id: 'all', label: 'All' }, { id: 'trend', label: 'Trending' }, { id: 'channel', label: 'Works for us' }].map((f) => ({ label: f.label, pressed: s.filter === f.id ? 'true' : 'false', border: s.filter === f.id ? '#FF7A45' : '#2A2C33', fg: s.filter === f.id ? '#F2F2F3' : '#A1A3AB', pick: () => this.setState({ filter: f.id }) })),
+      topics: topicData.filter((t) => s.filter === 'all' || t.kind === s.filter).map((t) => {
+        const pinned = s.pinned === t.id, voted = !!s.votes[t.id];
+        return {
+          title: t.title, why: t.why, debate: t.debate,
+          tag: t.kind === 'trend' ? 'Trending' : 'Works for us', tagBg: t.kind === 'trend' ? '#3A2A16' : '#1E2A44', tagFg: t.kind === 'trend' ? '#FFC58A' : '#A9C1FF',
+          actLabel: isHost ? (pinned ? 'On screen · remove' : 'Show on screen') : (voted ? 'Upvoted' : 'Upvote'),
+          pressed: (isHost ? pinned : voted) ? 'true' : 'false',
+          border: (isHost ? pinned : voted) ? '#FF7A45' : '#2A2C33', fg: (isHost ? pinned : voted) ? '#FF8A5B' : '#F2F2F3',
+          act: () => isHost ? this.setState({ pinned: pinned ? null : t.id }) : this.setState({ votes: Object.assign({}, s.votes, { [t.id]: !voted }) })
+        };
+      }),
+
+      sounds: ['Buzzer', 'Ding', 'Drumroll', 'Applause', 'Rimshot', 'Airhorn', 'Crickets', 'Gasp', 'Your upload'].map((nm, i) => ({
+        key: i + 1, name: nm, border: s.sound === nm ? '#FF7A45' : '#2A2C33',
+        play: () => { this.setState({ sound: nm }); setTimeout(() => this.setState({ sound: null }), 1300); }
+      })),
+
+      settingGroups: [
+        { label: 'Noise cancellation', options: this.seg([{ id: 'off', label: 'Off' }, { id: 'standard', label: 'Standard' }, { id: 'strong', label: 'Strong' }], 'nc') },
+        { label: 'Background', options: this.seg([{ id: 'off', label: 'Off' }, { id: 'blur', label: 'Blur' }, { id: 'set', label: 'Studio set' }], 'bg') },
+        { label: 'Layout', options: this.seg([{ id: 'room', label: 'One room' }, { id: 'tiles', label: 'Tiles' }], 'layout') }
+      ],
+      fixIdle: s.fix === 'idle', fixAsk: s.fix === 'ask', fixRunning: s.fix === 'running', fixDone: s.fix === 'done',
+      fixBorder: s.fix === 'idle' ? '#1F2026' : '#FF7A45',
+      openAsk: () => this.setState({ fix: 'ask' }), closeFix: () => this.setState({ fix: 'idle', symptom: null }),
+      symptoms: [{ id: 'mic', label: 'Others can’t hear me' }, { id: 'hear', label: 'I can’t hear them' }, { id: 'echo', label: 'There’s echo' }, { id: 'video', label: 'My video froze' }, { id: 'choppy', label: 'It’s choppy' }]
+        .map((x) => ({ label: x.label, pick: () => { this.setState({ fix: 'running', symptom: x.id }); setTimeout(() => this.setState({ fix: 'done' }), 1300); } })),
+      diagTitle: d.title, diagSteps: d.steps, diagResult: d.result,
+
+
+      ovOpen: s.ovOpen, ovExpanded: s.ovOpen ? 'true' : 'false', ovBg: s.ovOpen ? '#FF7A45' : '#1F2026', ovFg: s.ovOpen ? '#0E0F12' : '#F2F2F3',
+      toggleOverlay: () => this.setState({ ovOpen: !s.ovOpen, reactOpen: false, sharePick: false }),
+      ovTargets: roster.map((r) => ({ name: r.name === me ? r.name + ' (you)' : r.name, checked: s.ovTarget === r.name ? 'true' : 'false', border: s.ovTarget === r.name ? '#FF7A45' : '#2A2C33', pick: () => this.setState({ ovTarget: r.name }) })),
+      ovPrompt: s.ovPrompt,
+      setOvPrompt: (e) => this.setState({ ovPrompt: e.target.value }),
+      ovIdeas: ['Add a party hat', 'Give them sunglasses', 'Put a crown on', 'Add a \u201cGOAT\u201d badge'].map((x) => ({ text: x, use: () => this.setState({ ovPrompt: x }) })),
+      genLabel: s.ovGen ? 'Generating\u2026' : 'Generate',
+      generate: () => {
+        const p = (s.ovPrompt || 'Add a party hat').toLowerCase();
+        let who = s.ovTarget;
+        if (p.indexOf('ahsan') >= 0) who = 'Ahsan';
+        if (p.indexOf('friend 1') >= 0) who = '[Friend 1]';
+        if (p.indexOf('friend 2') >= 0) who = '[Friend 2]';
+        const kind = p.indexOf('glass') >= 0 ? 'glasses' : (p.indexOf('crown') >= 0 ? 'crown' : (p.indexOf('hat') >= 0 || p.indexOf('cap') >= 0 ? 'hat' : 'other'));
+        const label = p.indexOf('goat') >= 0 ? 'GOAT' : (s.ovPrompt || 'Party hat').slice(0, 24);
+        this.setState({ ovGen: true, ovGenWho: who });
+        setTimeout(() => this.setState({ ovGen: false, ovPrompt: '', overlays: this.state.overlays.filter((o) => !(o.who === who && o.kind === kind)).concat([{ id: 'o' + Date.now(), who: who, kind: kind, text: label }]) }), 1500);
+      },
+      ovGen: s.ovGen && s.mode === 'room',
+      ovGenLeft: (() => { const i = roster.findIndex((r) => r.name === s.ovGenWho); return i >= 0 ? (spots[n][i] + 3) + '%' : '40%'; })(),
+      hasOverlays: s.overlays.length > 0,
+      overlayList: s.overlays.map((o) => ({ text: o.text, who: o.who, remove: () => this.setState({ overlays: s.overlays.filter((x) => x.id !== o.id) }) })),
+      ovRender: s.mode !== 'room' ? [] : s.overlays.map((o) => {
+        const i = roster.findIndex((r) => r.name === o.who);
+        if (i < 0) return null;
+        const x = spots[n][i];
+        const off = { hat: 3.5, glasses: 6.5, crown: 5, other: 3 };
+        return { hat: o.kind === 'hat', glasses: o.kind === 'glasses', crown: o.kind === 'crown', other: o.kind === 'other', text: o.text, l: (x + off[o.kind]) + '%' };
+      }).filter((o) => !!o),
+      isTrivia: s.game === 'Trivia',
+      triviaQ: [
+        'How many words are in the English language?',
+        'How many bones are in the adult human body?',
+        'How many keys does a standard piano have?',
+        'How many countries are members of the United Nations?'
+      ].at(s.triviaIdx % 4),
+      triviaA: [
+        'The Oxford English Dictionary lists over 600,000 word forms',
+        '206',
+        '88',
+        '193'
+      ].at(s.triviaIdx % 4),
+      triviaShown: s.triviaShown, triviaHidden: !s.triviaShown,
+      revealTrivia: () => this.setState({ triviaShown: true }),
+      nextTrivia: () => this.setState({ triviaIdx: s.triviaIdx + 1, triviaShown: false }),
+      ...this.planVals()
+    };
+  }
+  planVals() {
+    const s = this.state;
+    const list = s.plan;
+    const setList = (c) => this.setState({ plan: c });
+    const nowIdx = list.findIndex((x) => x.id === s.nowId);
+    const nowItem = list.find((x) => x.id === s.nowId);
+    const nextItem = list.find((x, k) => k > nowIdx && !x.done) || list.find((x) => !x.done && x.id !== s.nowId);
+    return {
+      planOpen: true, planExpanded: s.planOpen ? 'true' : 'false', planChevron: s.planOpen ? '180deg' : '0deg',
+      planToggle: () => this.setState({ planOpen: !s.planOpen }),
+      planNow: nowItem ? nowItem.title : 'Nothing yet', planNext: nextItem ? nextItem.title : 'All done',
+      planAdd: () => setList(list.concat([{ id: 'n' + Date.now(), title: 'New item', done: false }])),
+      planItems: list.map((x, k) => {
+        const isNow = x.id === s.nowId;
+        const swap = (dir) => { const j = k + dir; if (j < 0 || j >= list.length) return; const c = list.slice(); const t = c[k]; c[k] = c[j]; c[j] = t; setList(c); };
+        return {
+          title: x.title, isNow: isNow, canStart: !isNow && !x.done,
+          doneAttr: x.done ? 'true' : 'false', checkBg: x.done ? '#7FD6A4' : 'transparent', checkBorder: x.done ? '#7FD6A4' : '#3A3C44', checkOpacity: x.done ? 1 : 0,
+          color: x.done ? '#8A8D96' : '#F2F2F3', weight: isNow ? 600 : 400, strike: x.done ? 'line-through' : 'none',
+          toggleDone: () => setList(list.map((y) => y.id === x.id ? Object.assign({}, y, { done: !y.done }) : y)),
+          rename: (e) => setList(list.map((y) => y.id === x.id ? Object.assign({}, y, { title: e.target.value }) : y)),
+          makeNow: () => this.setState({ nowId: x.id }), up: () => swap(-1), down: () => swap(1)
+        };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studio Three — Green room</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E0F12}
+a{color:#FF8A5B}a:hover{color:#FFB08F}
+</style>
+</helmet>
+<div style="min-height: 960px; background: #0E0F12; color: #F2F2F3; font-family: Inter, system-ui, sans-serif; font-size: 15px">
+  <header style="display: flex; align-items: center; gap: 32px; padding: 20px 40px">
+    <div style="display: flex; align-items: center; gap: 10px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px">
+      <span style="width: 26px; height: 26px; border-radius: 7px; background: #FF7A45; display: inline-flex; align-items: center; justify-content: center; color: #0E0F12; font-size: 14px">3</span>
+      Studio Three
+    </div>
+    <nav style="display: flex; gap: 24px; flex: 1">
+      <a href="Main.dc.html" aria-current="page" style="color: #F2F2F3; text-decoration: none; font-weight: 600">Record</a>
+      <a href="Library.dc.html" style="color: #A1A3AB; text-decoration: none">Library</a>
+    </nav>
+    <span style="width: 32px; height: 32px; border-radius: 50%; background: #FF7A45; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; color: #0E0F12; font-size: 14px" aria-label="[Friend 1]">F</span>
+  </header>
+
+  <main style="max-width: 1120px; margin: 0 auto; padding: 32px 24px 64px; display: flex; flex-direction: column; gap: 28px">
+
+    <div style="display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start">
+      <section style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+        <div style="position: relative; aspect-ratio: 16 / 10; border-radius: 16px; overflow: hidden; background: #2B2F3A">
+          <sc-if value="{{isSet}}" hint-placeholder-val="{{ true }}">
+            <div style="position: absolute; top: 0; bottom: 0; width: 300%; left: {{roomLeft}}; background: #2B2F3A">
+              <div style="position: absolute; left: 3%; top: 20%; width: 9%; height: 1.4%; background: #4A4F5E"></div>
+              <div style="position: absolute; left: 4%; top: 10%; width: 2%; height: 10%; background: #FF7A45"></div>
+              <div style="position: absolute; left: 6.5%; top: 12%; width: 1.5%; height: 8%; background: #5B8CFF"></div>
+              <div style="position: absolute; left: 45%; top: 9%; padding: 6px 18px; border: 3px solid #FF7A45; border-radius: 999px; color: #FF7A45; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 3px">ON AIR</div>
+              <div style="position: absolute; left: 88%; top: 14%; width: 7%; aspect-ratio: 1; border-radius: 50%; background: #3F7A5A"></div>
+              <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 24%; background: #5A3E30; border-top: 6px solid #7A5644"></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{isReal}}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; inset: 0; background: #8C8273; filter: {{realFilter}}">
+              <div style="position: absolute; left: 8%; top: 12%; width: 18%; height: 70%; background: #6E5F4C; border-radius: 4px"></div>
+              <div style="position: absolute; right: 10%; top: 20%; width: 22%; height: 30%; background: #A8C0D6; border: 8px solid #EDE6DA"></div>
+              <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 18%; background: #5C5145"></div>
+            </div>
+          </sc-if>
+          <div style="position: absolute; left: 32%; bottom: 0; width: 36%; height: 46%; background: #6B3B4A; border-radius: 120px 120px 0 0"></div>
+          <div style="position: absolute; left: 40%; bottom: 40%; width: 20%; aspect-ratio: 1; background: #8C6650; border-radius: 50%"></div>
+          <sc-if value="{{isSet}}" hint-placeholder-val="{{ true }}">
+            <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 14%; background: #6A4A3A; border-top: 6px solid #8A6452"></div>
+          </sc-if>
+          <sc-if value="{{camOff}}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; inset: 0; background: #17181C; display: flex; align-items: center; justify-content: center; color: #A1A3AB">Camera is off</div>
+          </sc-if>
+          <span style="position: absolute; left: 16px; top: 16px; padding: 6px 12px; border-radius: 999px; background: rgba(14,15,18,0.82); font-size: 13px">{{previewLabel}}</span>
+        </div>
+
+        <button onClick="{{toggleChecks}}" aria-expanded="{{checksExpanded}}" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; margin-left: -12px; border-radius: 8px; border: 0; background: transparent; color: {{summaryColor}}; font: inherit; font-size: 14px; cursor: pointer">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: {{summaryColor}}" aria-hidden="true"></span>{{summary}}<span style="color: #A1A3AB">· {{checksCta}}</span>
+        </button>
+
+        <sc-if value="{{checksOpen}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 16px">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px">
+              <div style="display: flex; flex-direction: column; gap: 8px">
+          <span id="bg-label" style="font-size: 14px; color: #A1A3AB">Background</span>
+          <div role="group" aria-labelledby="bg-label" style="display: flex; gap: 4px; background: #17181C; padding: 4px; border-radius: 12px">
+            <sc-for list="{{bgOptions}}" as="o" hint-placeholder-count="3">
+              <button onClick="{{o.pick}}" aria-pressed="{{o.pressed}}" style="flex: 1; min-height: 44px; border: 0; border-radius: 9px; font: inherit; font-weight: 500; cursor: pointer; background: {{o.bg}}; color: {{o.fg}}">{{o.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <span id="nc-label" style="font-size: 14px; color: #A1A3AB">Noise cancellation</span>
+          <div role="group" aria-labelledby="nc-label" style="display: flex; gap: 4px; background: #17181C; padding: 4px; border-radius: 12px">
+            <sc-for list="{{ncOptions}}" as="o" hint-placeholder-count="3">
+              <button onClick="{{o.pick}}" aria-pressed="{{o.pressed}}" style="flex: 1; min-height: 44px; border: 0; border-radius: 9px; font: inherit; font-weight: 500; cursor: pointer; background: {{o.bg}}; color: {{o.fg}}">{{o.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; border-radius: 12px; overflow: hidden; background: #2A2C33">
+              <sc-for list="{{checks}}" as="c" hint-placeholder-count="8">
+                <div style="display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; background: #17181C">
+                  <span style="font-size: 12px; color: #A1A3AB">{{c.label}}</span>
+                  <span style="font-weight: 600; font-size: 14px">{{c.value}}</span>
+                  <span style="font-size: 12px; color: {{c.noteColor}}">{{c.note}}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <sc-if value="{{micIssue}}" hint-placeholder-val="{{ true }}">
+              <div role="alert" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 12px; background: #3A2A16; color: #FFE2C2">
+                <span style="flex: 1 1 280px"><strong>Your mic is very quiet.</strong> The others may not hear you clearly.</span>
+                <button onClick="{{fixMic}}" style="min-height: 40px; padding: 0 16px; border-radius: 8px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">Fix this</button>
+              </div>
+            </sc-if>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px">
+              <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 12px; background: #17181C">
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                  <span style="font-weight: 600">Camera</span>
+                  <button role="switch" aria-checked="{{camOnAttr}}" aria-label="Camera on" onClick="{{toggleCam}}" style="width: 44px; height: 26px; border-radius: 999px; border: 0; padding: 3px; background: {{camTrack}}; cursor: pointer; display: flex; justify-content: {{camAlign}}"><span style="width: 20px; height: 20px; border-radius: 50%; background: #F2F2F3"></span></button>
+                </div>
+                <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #A1A3AB">Device
+                  <select style="min-height: 40px; padding: 0 10px; border-radius: 8px; border: 1px solid #2A2C33; background: #0E0F12; color: #F2F2F3; font: inherit; font-size: 14px"><option>FaceTime HD Camera</option><option>Logitech C920</option></select>
+                </label>
+                <span style="font-size: 13px; color: #A1A3AB">1080p · 30 fps · lighting OK</span>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 12px; background: #17181C">
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                  <span style="font-weight: 600">Microphone</span>
+                  <button role="switch" aria-checked="{{micOnAttr}}" aria-label="Microphone on" onClick="{{toggleMicOn}}" style="width: 44px; height: 26px; border-radius: 999px; border: 0; padding: 3px; background: {{micTrack}}; cursor: pointer; display: flex; justify-content: {{micAlign}}"><span style="width: 20px; height: 20px; border-radius: 50%; background: #F2F2F3"></span></button>
+                </div>
+                <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #A1A3AB">Device
+                  <select style="min-height: 40px; padding: 0 10px; border-radius: 8px; border: 1px solid #2A2C33; background: #0E0F12; color: #F2F2F3; font: inherit; font-size: 14px"><option>USB Microphone</option><option>MacBook Pro Microphone</option><option>AirPods Pro</option></select>
+                </label>
+                <div style="display: flex; align-items: flex-end; gap: 3px; height: 22px" role="img" aria-label="Mic level {{levelLabel}}">
+                  <sc-for list="{{levelBars}}" as="b" hint-placeholder-count="12">
+                    <span style="flex: 1; height: {{b.h}}; border-radius: 2px; background: {{b.c}}"></span>
+                  </sc-for>
+                </div>
+                <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #A1A3AB">Input gain · {{gain}}%
+                  <input type="range" min="0" max="100" value="{{gain}}" onChange="{{setGain}}" style="accent-color: #FF7A45">
+                </label>
+                <span style="font-size: 13px; color: #A1A3AB">48 kHz · mono · recording to WAV</span>
+                <sc-for list="{{micToggles}}" as="t" hint-placeholder-count="2">
+                  <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px">
+                    <span>{{t.label}}</span>
+                    <button role="switch" aria-checked="{{t.on}}" aria-label="{{t.label}}" onClick="{{t.flip}}" style="width: 40px; height: 24px; border-radius: 999px; border: 0; padding: 3px; background: {{t.track}}; cursor: pointer; display: flex; justify-content: {{t.align}}"><span style="width: 18px; height: 18px; border-radius: 50%; background: #F2F2F3"></span></button>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 12px; background: #17181C">
+                <span style="font-weight: 600">Speakers / headphones</span>
+                <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #A1A3AB">Device
+                  <select style="min-height: 40px; padding: 0 10px; border-radius: 8px; border: 1px solid #2A2C33; background: #0E0F12; color: #F2F2F3; font: inherit; font-size: 14px"><option>AirPods Pro</option><option>MacBook Pro Speakers</option></select>
+                </label>
+                <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #A1A3AB">Volume · 70%
+                  <input type="range" min="0" max="100" value="70" style="accent-color: #FF7A45">
+                </label>
+                <button style="min-height: 40px; border-radius: 8px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; font-size: 14px; cursor: pointer">Play test sound</button>
+                <span style="font-size: 13px; color: #7FD6A4">Headphones detected · no echo</span>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 14px; padding: 18px; border-radius: 12px; background: #17181C; border: 1px solid {{fixBorder}}">
+              <sc-if value="{{fixIdle}}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+                  <span style="flex: 1 1 260px"><strong>Something not working?</strong> <span style="color: #A1A3AB">Tell us what's wrong and we'll find the cause and fix it for you.</span></span>
+                  <button onClick="{{openAsk}}" style="min-height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">Fix this</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{fixAsk}}" hint-placeholder-val="{{ false }}">
+                <span style="font-weight: 600">What's happening?</span>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                  <sc-for list="{{symptoms}}" as="sy" hint-placeholder-count="5">
+                    <button onClick="{{sy.pick}}" style="min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; font-size: 14px; cursor: pointer">{{sy.label}}</button>
+                  </sc-for>
+                </div>
+                <button onClick="{{closeFix}}" style="align-self: flex-start; min-height: 32px; padding: 0; border: 0; background: transparent; color: #A1A3AB; font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer">Cancel</button>
+              </sc-if>
+              <sc-if value="{{fixRunning}}" hint-placeholder-val="{{ false }}">
+                <span style="font-weight: 600">Checking: {{diagTitle}}</span>
+                <sc-for list="{{diagSteps}}" as="st" hint-placeholder-count="3">
+                  <span style="font-size: 14px; color: #A1A3AB">Checking {{st}}</span>
+                </sc-for>
+              </sc-if>
+              <sc-if value="{{fixDone}}" hint-placeholder-val="{{ false }}">
+                <span style="font-weight: 600">What we found</span>
+                <sc-for list="{{diagSteps}}" as="st" hint-placeholder-count="3">
+                  <span style="display: flex; align-items: center; gap: 8px; font-size: 14px">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7FD6A4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>{{st}}
+                  </span>
+                </sc-for>
+                <div style="padding: 12px 14px; border-radius: 10px; background: #13261C; color: #CDEFD9; font-size: 14px"><strong>Fixed for you:</strong> {{diagResult}}</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                  <button onClick="{{closeFix}}" style="min-height: 44px; padding: 0 16px; border-radius: 10px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">That fixed it</button>
+                  <button onClick="{{escalate}}" style="min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; cursor: pointer">Still not working</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{fixEscalate}}" hint-placeholder-val="{{ false }}">
+                <span style="font-weight: 600">Let's try something else</span>
+                <div style="display: flex; flex-direction: column; gap: 8px">
+                  <button style="min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; text-align: left; cursor: pointer">Switch to another {{escalateDevice}} automatically</button>
+                  <button style="min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; text-align: left; cursor: pointer">Restart audio and video (takes 5 seconds)</button>
+                  <button style="min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; text-align: left; cursor: pointer">Ask Ahsan for help (sends him these details)</button>
+                  <a href="#" style="min-height: 32px; display: inline-flex; align-items: center; font-size: 14px">Step-by-step guide for {{escalateGuide}}</a>
+                </div>
+                <button onClick="{{closeFix}}" style="align-self: flex-start; min-height: 32px; padding: 0; border: 0; background: transparent; color: #A1A3AB; font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer">Close</button>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+      </section>
+
+      <aside style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 20px">
+        <label style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: #A1A3AB">Microphone
+          <select style="min-height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid #2A2C33; background: #17181C; color: #F2F2F3; font: inherit; font-size: 15px"><option>USB Microphone</option><option>MacBook Pro Microphone</option><option>AirPods Pro</option></select>
+        </label>
+        <label style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: #A1A3AB">Speakers
+          <select style="min-height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid #2A2C33; background: #17181C; color: #F2F2F3; font: inherit; font-size: 15px"><option>AirPods Pro</option><option>MacBook Pro Speakers</option></select>
+        </label>
+        <a href="StudioGuest.dc.html" style="display: inline-flex; justify-content: center; align-items: center; min-height: 52px; border-radius: 12px; background: #FF7A45; color: #0E0F12; font-weight: 600; text-decoration: none; font-size: 16px">Enter studio</a>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { bg: 'set', seat: 'centre', nc: 'standard', checksOpen: false, camOn: true, micOn: true, gain: 65, agc: false, echo: true, micFixed: true, fix: 'idle', symptom: null };
+    this.diag = {
+      mic: { title: 'why others can’t hear you well', device: 'microphone', guide: 'microphones',
+        steps: ['Mic permission: allowed', 'Input level: very low, around 10%', 'Auto gain was fighting your gain setting'],
+        result: 'raised your input gain to 65% and turned off auto gain. Say something to test it.',
+        apply: { gain: 65, agc: false, micFixed: true } },
+      hear: { title: 'why you can’t hear the others', device: 'speaker', guide: 'speakers and headphones',
+        steps: ['Others are sending audio normally', 'Output was set to MacBook speakers at 0% volume'],
+        result: 'switched output to your AirPods and set volume to 70%. Press Play test sound to check.', apply: {} },
+      echo: { title: 'where the echo comes from', device: 'microphone', guide: 'echo',
+        steps: ['Headphones: not detected', 'Your mic is picking up the call from your speakers'],
+        result: 'turned on echo cancellation and Strong noise cancellation. Wearing headphones fixes it completely.', apply: { echo: true, nc: 'strong' } },
+      video: { title: 'why your camera is black', device: 'camera', guide: 'cameras',
+        steps: ['Camera permission: allowed', 'Another app is using the camera'],
+        result: 'reconnected the camera after the other app let go of it. If it’s still black, quit that app.', apply: { camOn: true } },
+      choppy: { title: 'why audio or video is choppy', device: 'network', guide: 'slow connections',
+        steps: ['Upload speed dropped to 2 Mbps', 'Wi-Fi signal: weak'],
+        result: 'lowered your live call to 720p. Your local recording stays at full 1080p quality.', apply: {} }
+    };
+  }
+  seg(list, key) {
+    return list.map((o) => {
+      const on = this.state[key] === o.id;
+      return { label: o.label, pressed: on ? 'true' : 'false', bg: on ? '#2A2C33' : 'transparent', fg: on ? '#F2F2F3' : '#A1A3AB', pick: () => this.setState({ [key]: o.id }) };
+    });
+  }
+  run(id) {
+    this.setState({ fix: 'running', symptom: id, checksOpen: true });
+    setTimeout(() => {
+      this.setState(Object.assign({ fix: 'done' }, this.diag[id].apply));
+    }, 1400);
+  }
+  sw(on) {
+    return { track: on ? '#FF7A45' : '#3A3C44', align: on ? 'flex-end' : 'flex-start', on: on ? 'true' : 'false' };
+  }
+  renderVals() {
+    const s = this.state;
+    const seatLeft = { left: '0%', centre: '-100%', right: '-200%' };
+    const d = s.symptom ? this.diag[s.symptom] : this.diag.mic;
+    const micIssue = !s.micFixed;
+    const lit = !s.micOn ? 0 : Math.max(1, Math.round(s.gain / 100 * 11));
+    const cam = this.sw(s.camOn), mic = this.sw(s.micOn);
+    return {
+      checksOpen: s.checksOpen,
+      checksExpanded: s.checksOpen ? 'true' : 'false',
+      checksCta: s.checksOpen ? 'Hide' : 'More settings and troubleshooting',
+      toggleChecks: () => this.setState({ checksOpen: !s.checksOpen }),
+      summary: micIssue ? '7 of 8 checks passed · your mic is quiet' : 'All checks passed',
+      summaryColor: micIssue ? '#FFC58A' : '#7FD6A4',
+      micIssue: micIssue,
+      fixMic: () => this.run('mic'),
+      checks: [
+        { label: 'Browser', value: 'Chrome 131', note: 'Supported', noteColor: '#7FD6A4' },
+        { label: 'Free space', value: '214 GB', note: 'About 30 h at 1080p', noteColor: '#7FD6A4' },
+        { label: 'Upload speed', value: '18 Mbps', note: 'Enough for 1080p', noteColor: '#7FD6A4' },
+        { label: 'Download speed', value: '120 Mbps', note: 'Smooth video', noteColor: '#7FD6A4' },
+        { label: 'Connection', value: '38 ms', note: 'Low delay', noteColor: '#7FD6A4' },
+        { label: 'Camera', value: s.camOn ? '1080p · 30 fps' : 'Off', note: s.camOn ? 'Working' : 'Turned off', noteColor: s.camOn ? '#7FD6A4' : '#FFC58A' },
+        { label: 'Microphone', value: micIssue ? 'Very quiet' : 'Level good', note: micIssue ? 'Others may not hear you' : '48 kHz', noteColor: micIssue ? '#FFC58A' : '#7FD6A4' },
+        { label: 'Echo', value: 'Headphones on', note: 'No echo', noteColor: '#7FD6A4' }
+      ],
+      camOff: !s.camOn,
+      camOnAttr: cam.on, camTrack: cam.track, camAlign: cam.align,
+      toggleCam: () => this.setState({ camOn: !s.camOn }),
+      micOnAttr: mic.on, micTrack: mic.track, micAlign: mic.align,
+      toggleMicOn: () => this.setState({ micOn: !s.micOn }),
+      gain: s.gain,
+      setGain: (e) => { const v = Number(e.target.value); this.setState({ gain: v, micFixed: v >= 50 }); },
+      levelLabel: micIssue ? 'very low' : 'good',
+      levelBars: Array.from({ length: 12 }, (_, i) => ({
+        h: (30 + (i % 4) * 18) + '%',
+        c: i < lit ? (i > 9 ? '#FFC58A' : '#7FD6A4') : '#2A2C33'
+      })),
+      micToggles: [
+        { key: 'echo', label: 'Echo cancellation' },
+        { key: 'agc', label: 'Auto gain' }
+      ].map((t) => { const v = this.sw(s[t.key]); return { label: t.label, on: v.on, track: v.track, align: v.align, flip: () => this.setState({ [t.key]: !s[t.key] }) }; }),
+      fixIdle: s.fix === 'idle',
+      fixAsk: s.fix === 'ask',
+      fixRunning: s.fix === 'running',
+      fixDone: s.fix === 'done',
+      fixEscalate: s.fix === 'escalate',
+      fixBorder: s.fix === 'idle' ? '#17181C' : '#FF7A45',
+      openAsk: () => this.setState({ fix: 'ask' }),
+      closeFix: () => this.setState({ fix: 'idle', symptom: null }),
+      escalate: () => this.setState({ fix: 'escalate' }),
+      symptoms: [
+        { id: 'mic', label: 'Others can’t hear me well' },
+        { id: 'hear', label: 'I can’t hear the others' },
+        { id: 'echo', label: 'There’s echo' },
+        { id: 'video', label: 'My camera is black or frozen' },
+        { id: 'choppy', label: 'Audio or video is choppy' }
+      ].map((x) => ({ label: x.label, pick: () => this.run(x.id) })),
+      diagTitle: d.title,
+      diagSteps: d.steps,
+      diagResult: d.result,
+      escalateDevice: d.device,
+      escalateGuide: d.guide,
+      isSet: s.bg === 'set',
+      isReal: s.bg !== 'set',
+      realFilter: s.bg === 'blur' ? 'blur(14px)' : 'none',
+      roomLeft: seatLeft[s.seat],
+      previewLabel: s.bg === 'set' ? 'Late-night desk' : (s.bg === 'blur' ? 'Your room, blurred' : 'Your real room'),
+      bgOptions: this.seg([{ id: 'off', label: 'Off' }, { id: 'blur', label: 'Blur' }, { id: 'set', label: 'Studio set' }], 'bg'),
+      seatOptions: this.seg([{ id: 'left', label: 'Left' }, { id: 'centre', label: 'Centre' }, { id: 'right', label: 'Right' }], 'seat'),
+      ncOptions: this.seg([{ id: 'off', label: 'Off' }, { id: 'standard', label: 'Standard' }, { id: 'strong', label: 'Strong' }], 'nc')
+    };
+  }
+}
+</script>
+</body>
+</html>

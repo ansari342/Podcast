@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studio Three — Home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E0F12}
+a{color:#FF8A5B}a:hover{color:#FFB08F}
+</style>
+</helmet>
+<div style="min-height: 960px; background: #0E0F12; color: #F2F2F3; font-family: Inter, system-ui, sans-serif; font-size: 15px">
+  <header style="display: flex; align-items: center; gap: 32px; padding: 20px 40px">
+    <div style="display: flex; align-items: center; gap: 10px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px">
+      <span style="width: 26px; height: 26px; border-radius: 7px; background: #FF7A45; display: inline-flex; align-items: center; justify-content: center; color: #0E0F12; font-size: 14px">3</span>
+      Studio Three
+    </div>
+    <nav style="display: flex; gap: 24px; flex: 1">
+      <a href="Main.dc.html" aria-current="page" style="color: #F2F2F3; text-decoration: none; font-weight: 600">Record</a>
+      <a href="Library.dc.html" style="color: #A1A3AB; text-decoration: none">Library</a>
+    </nav>
+    <span style="width: 32px; height: 32px; border-radius: 50%; background: #5B8CFF; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; color: #0E0F12; font-size: 14px" aria-label="Ahsan">A</span>
+  </header>
+
+  <main style="max-width: 640px; margin: 0 auto; padding: 48px 24px 64px; display: flex; flex-direction: column; gap: 40px">
+
+    <section style="display: flex; flex-direction: column; gap: 28px">
+      <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 36px; font-weight: 600; letter-spacing: -0.5px">New episode</h1>
+
+      <label style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: #A1A3AB">Title
+        <input value="Episode 15: [TITLE]" style="min-height: 48px; padding: 0 16px; border-radius: 12px; border: 1px solid #2A2C33; background: #17181C; color: #F2F2F3; font: inherit; font-size: 16px">
+      </label>
+
+      <a href="Studio.dc.html" style="display: inline-flex; justify-content: center; align-items: center; min-height: 52px; border-radius: 12px; background: #FF7A45; color: #0E0F12; font-weight: 600; text-decoration: none; font-size: 16px">Open the studio</a>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 4px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 600; color: #A1A3AB">Recent</h2>
+        <a href="Library.dc.html" style="font-size: 14px">All episodes</a>
+      </div>
+      <sc-for list="{{episodes}}" as="ep" hint-placeholder-count="3">
+        <a href="Library.dc.html" style="display: flex; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid #1F2026; color: #F2F2F3; text-decoration: none">
+          <span>{{ep.title}}</span>
+          <span style="color: #A1A3AB; font-size: 14px">{{ep.meta}}</span>
+        </a>
+      </sc-for>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { count: 3 };
+  }
+  renderVals() {
+    const n = this.state.count;
+    const summaries = {
+      1: 'Solo episode: 4 of 8 games available, in solo mode.',
+      2: '6 of 8 games available, with 2-player rules. Imposter and Most Likely To need 3.',
+      3: 'All 8 games available with full rules.'
+    };
+    return {
+      counts: [1, 2, 3].map((k) => ({
+        n: k,
+        sub: k === 1 ? 'Just me' : (k === 2 ? 'Me + 1' : 'Full crew'),
+        checked: k === n ? 'true' : 'false',
+        border: k === n ? '#FF7A45' : '#2A2C33',
+        bg: k === n ? '#2A1F18' : '#17181C',
+        pick: () => this.setState({ count: k })
+      })),
+      gamesSummary: summaries[n],
+      episodes: [
+        { title: 'Episode 14: [TITLE]', meta: 'Nov 14 · 1 h 12 min' },
+        { title: 'Episode 13: [TITLE]', meta: 'Nov 7 · 58 min' },
+        { title: 'Episode 12: [TITLE]', meta: 'Oct 31 · 1 h 4 min' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

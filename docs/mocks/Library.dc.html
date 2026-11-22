@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studio Three — Episode detail</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E0F12}
+a{color:#FF8A5B}a:hover{color:#FFB08F}
+</style>
+</helmet>
+<div style="min-height: 960px; background: #0E0F12; color: #F2F2F3; font-family: Inter, system-ui, sans-serif; font-size: 15px">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 18px 40px; border-bottom: 1px solid #2A2C33">
+    <div style="display: flex; align-items: center; gap: 10px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px">
+      <span style="width: 28px; height: 28px; border-radius: 8px; background: #FF7A45; display: inline-flex; align-items: center; justify-content: center; color: #0E0F12; font-size: 15px">3</span>
+      Studio Three
+    </div>
+    <nav style="display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 auto">
+      <a href="Main.dc.html" style="padding: 8px 14px; border-radius: 8px; color: #A1A3AB; text-decoration: none">Home</a>
+      <a href="Library.dc.html" style="padding: 8px 14px; border-radius: 8px; background: #1F2026; color: #F2F2F3; text-decoration: none; font-weight: 500">Library</a>
+    </nav>
+  </header>
+
+  <main style="max-width: 1280px; margin: 0 auto; padding: 32px 40px; display: flex; flex-direction: column; gap: 28px">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px">
+      <div>
+        <div style="color: #A1A3AB; font-size: 14px; margin-bottom: 6px">Recorded Nov 21 · 1 h 24 min · Late-night desk set</div>
+        <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 36px; font-weight: 600">Episode 15: [TITLE]</h1>
+      </div>
+      <button style="min-height: 48px; padding: 0 20px; border-radius: 12px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">Download everything (ZIP)</button>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+      <section style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+        <div style="position: relative; aspect-ratio: 16 / 7; border-radius: 16px; overflow: hidden; background: #2B2F3A">
+          <div style="position: absolute; left: 44%; top: 8%; padding: 5px 16px; border: 3px solid #FF7A45; border-radius: 999px; color: #FF7A45; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: 3px">ON AIR</div>
+          <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 24%; background: #5A3E30; border-top: 6px solid #7A5644"></div>
+          <div style="position: absolute; left: 7%; bottom: 0; width: 20%; height: 52%; background: #3B4A6B; border-radius: 140px 140px 0 0"></div>
+          <div style="position: absolute; left: 11.5%; bottom: 44%; width: 11%; aspect-ratio: 1; background: #C89A7A; border-radius: 50%"></div>
+          <div style="position: absolute; left: 40%; bottom: 0; width: 20%; height: 52%; background: #6B3B4A; border-radius: 140px 140px 0 0"></div>
+          <div style="position: absolute; left: 44.5%; bottom: 44%; width: 11%; aspect-ratio: 1; background: #8C6650; border-radius: 50%"></div>
+          <div style="position: absolute; left: 73%; bottom: 0; width: 20%; height: 52%; background: #3B6B5A; border-radius: 140px 140px 0 0"></div>
+          <div style="position: absolute; left: 77.5%; bottom: 44%; width: 11%; aspect-ratio: 1; background: #E0B896; border-radius: 50%"></div>
+          <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 15%; background: #6A4A3A; border-top: 6px solid #8A6452"></div>
+          <button aria-label="Play composite" style="position: absolute; left: calc(50% - 32px); top: calc(50% - 32px); width: 64px; height: 64px; border-radius: 50%; border: 0; background: rgba(14,15,18,0.85); cursor: pointer; display: flex; align-items: center; justify-content: center">
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="#F2F2F3"/></svg>
+          </button>
+        </div>
+
+        <div style="background: #17181C; border: 1px solid #2A2C33; border-radius: 16px; overflow: hidden">
+          <div style="padding: 16px 20px; border-bottom: 1px solid #2A2C33; font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600">Files</div>
+          <div style="overflow-x: auto">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 560px">
+              <thead>
+                <tr style="color: #A1A3AB; text-align: left">
+                  <th style="padding: 10px 20px; font-weight: 500">File</th>
+                  <th style="padding: 10px 12px; font-weight: 500">Format</th>
+                  <th style="padding: 10px 12px; font-weight: 500">Size</th>
+                  <th style="padding: 10px 20px; font-weight: 500"><span style="position: absolute; left: -9999px">Action</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{files}}" as="f" hint-placeholder-count="8">
+                  <tr style="border-top: 1px solid #2A2C33">
+                    <td style="padding: 12px 20px">{{f.name}}</td>
+                    <td style="padding: 12px; color: #A1A3AB">{{f.fmt}}</td>
+                    <td style="padding: 12px; color: #A1A3AB">{{f.size}}</td>
+                    <td style="padding: 12px 20px; text-align: right"><button style="min-height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; font-size: 14px; cursor: pointer">Download</button></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <aside style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 16px">
+        <div style="background: #17181C; border: 1px solid #2A2C33; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+          <h2 style="margin: 0 0 4px; font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600">Markers and game moments</h2>
+          <sc-for list="{{moments}}" as="m" hint-placeholder-count="6">
+            <div style="display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-top: 1px solid #2A2C33">
+              <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; color: #FF8A5B; font-variant-numeric: tabular-nums; min-width: 64px">{{m.t}}</span>
+              <span style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+                <span>{{m.label}}</span>
+                <span style="font-size: 12px; color: #A1A3AB">{{m.kind}}</span>
+              </span>
+              <button style="min-height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; font-size: 13px; cursor: pointer">Clip 9:16</button>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background: #17181C; border: 1px solid #2A2C33; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+          <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600">Uploads</h2>
+          <div style="display: flex; justify-content: space-between; font-size: 14px"><span>Ahsan</span><span style="color: #7FD6A4">Complete</span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 14px"><span>[Friend 1]</span><span style="color: #7FD6A4">Complete</span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 14px"><span>[Friend 2]</span><span style="color: #7FD6A4">Complete</span></div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      files: [
+        { name: 'Active video · what was on stage (room, game boards, shared screens)', fmt: 'MP4 1080p', size: '[SIZE]' },
+        { name: 'Ahsan · video', fmt: 'MP4 1080p', size: '[SIZE]' },
+        { name: '[Friend 1] · video', fmt: 'MP4 1080p', size: '[SIZE]' },
+        { name: '[Friend 2] · video', fmt: 'MP4 1080p', size: '[SIZE]' },
+        { name: 'Per person: raw camera, raw mic, clean audio', fmt: 'MP4 + WAV', size: '[SIZE]' },
+        { name: 'Shared screen and game-only tracks', fmt: 'MP4 1080p', size: '[SIZE]' },
+        { name: 'Sound effects track', fmt: 'WAV', size: '[SIZE]' },
+        { name: 'Markers, reactions and game events', fmt: 'CSV, JSON', size: '[SIZE]' }
+      ],
+      moments: [
+        { t: '00:12:40', label: 'Good clip', kind: 'Marker by Ahsan' },
+        { t: '00:48:02', label: 'Imposter starts', kind: 'Game event' },
+        { t: '00:56:31', label: 'Imposter revealed: [Friend 2]', kind: 'Game event' },
+        { t: '01:02:10', label: 'Tier list: fast-food fries', kind: 'Game event' },
+        { t: '01:18:20', label: 'Fast Money: 191 points, just short', kind: 'Game event' },
+        { t: '01:21:05', label: 'Good clip', kind: 'Marker by Ahsan' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

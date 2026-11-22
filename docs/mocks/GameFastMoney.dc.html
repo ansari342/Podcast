@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studio Three — Fast Money, no sound</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E0F12}
+a{color:#FF8A5B}a:hover{color:#FFB08F}
+</style>
+</helmet>
+<div style="min-height: 960px; background: #0E0F12; color: #F2F2F3; font-family: Inter, system-ui, sans-serif; font-size: 15px">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 32px">
+    <a href="Studio.dc.html" style="color: #A1A3AB; text-decoration: none; font-size: 14px">Back to studio</a>
+    <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 18px; flex: 1 1 auto">Fast Money, no sound · Question {{qNum}} of 5</div>
+    <button onClick="{{toggleRecGame}}" aria-pressed="{{recGamePressed}}" style="display: inline-flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 14px 0 8px; border-radius: 999px; border: 1px solid {{recGameBorder}}; background: transparent; color: #F2F2F3; font: inherit; font-size: 14px; cursor: pointer">
+      <span style="width: 34px; height: 20px; border-radius: 999px; padding: 2px; box-sizing: border-box; background: {{recGameTrack}}; display: flex; justify-content: {{recGameAlign}}"><span style="width: 16px; height: 16px; border-radius: 50%; background: #F2F2F3"></span></span>
+      {{recGameLabel}}
+    </button>
+    <div role="radiogroup" aria-label="Preview as" style="display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 10px; background: #17181C">
+      <span style="font-size: 13px; color: #A1A3AB; padding: 0 8px">Preview as</span>
+      <sc-for list="{{views}}" as="v" hint-placeholder-count="2">
+        <button role="radio" aria-checked="{{v.checked}}" onClick="{{v.pick}}" style="min-height: 34px; padding: 0 12px; border: 0; border-radius: 7px; background: {{v.bg}}; color: {{v.fg}}; font: inherit; font-size: 14px; cursor: pointer">{{v.label}}</button>
+      </sc-for>
+    </div>
+    <span style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-variant-numeric: tabular-nums"><span style="width: 10px; height: 10px; border-radius: 50%; background: #F0524F"></span>01:18:55</span>
+  </header>
+
+  <div style="max-width: 1280px; margin: 0 auto; padding: 8px 32px 32px; display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+    <section style="flex: 999 1 620px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+
+      <div style="display: flex; gap: 12px">
+        <div style="flex: 2; position: relative; aspect-ratio: 4 / 3; border-radius: 16px; overflow: hidden; background: #2B2F3A; outline: 3px solid #FF7A45; outline-offset: -3px">
+          <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 18%; background: #6A4A3A; border-top: 5px solid #8A6452"></div>
+          <div style="position: absolute; left: 25%; bottom: 0; width: 50%; height: 44%; background: #3B4A6B; border-radius: 160px 160px 0 0"></div>
+          <div style="position: absolute; left: 34%; bottom: 36%; width: 32%; aspect-ratio: 1; background: #C89A7A; border-radius: 50%"></div>
+          <div style="position: absolute; left: 44%; bottom: 46%; width: 12%; height: 6%; background: #5A2E2A; border-radius: 50%; border: 3px solid #8C4A42"></div>
+          <span style="position: absolute; left: 14px; top: 14px; padding: 5px 12px; border-radius: 999px; background: rgba(14,15,18,0.88); font-size: 13px; font-weight: 600">Asking: Ahsan</span>
+          <sc-if value="{{isGuesser}}" hint-placeholder-val="{{ true }}">
+            <span style="position: absolute; right: 14px; top: 14px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: #FFC58A; color: #0E0F12; font-size: 13px; font-weight: 600">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0E0F12" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l4 6M21 9l-4 6"/></svg>
+              You can't hear Ahsan · read his lips
+            </span>
+            <div style="position: absolute; right: 14px; bottom: 14px; width: 30%; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #C89A7A; border: 2px solid #F2F2F3">
+              <div style="position: absolute; left: 25%; top: 30%; width: 50%; height: 40%; background: #5A2E2A; border-radius: 50%; border: 5px solid #8C4A42"></div>
+              <span style="position: absolute; left: 6px; bottom: 4px; font-size: 11px; padding: 1px 6px; border-radius: 999px; background: rgba(14,15,18,0.85); color: #F2F2F3">Mouth zoom</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{isAsker}}" hint-placeholder-val="{{ false }}">
+            <span style="position: absolute; right: 14px; top: 14px; padding: 5px 12px; border-radius: 999px; background: rgba(14,15,18,0.88); font-size: 13px">They can't hear you. Say it clearly.</span>
+          </sc-if>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 12px">
+          <sc-for list="{{guessers}}" as="g" hint-placeholder-count="2">
+            <div style="flex: 1; position: relative; border-radius: 14px; overflow: hidden; background: #2B2F3A; outline: 2px solid {{g.ring}}; outline-offset: -2px">
+              <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 18%; background: #6A4A3A"></div>
+              <div style="position: absolute; left: 25%; bottom: 0; width: 50%; height: 44%; background: {{g.shirt}}; border-radius: 80px 80px 0 0"></div>
+              <div style="position: absolute; left: 37%; bottom: 38%; width: 26%; aspect-ratio: 1; background: {{g.skin}}; border-radius: 50%"></div>
+              <span style="position: absolute; left: 10px; top: 10px; padding: 3px 10px; border-radius: 999px; background: rgba(14,15,18,0.88); font-size: 12px">{{g.status}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <sc-if value="{{isAsker}}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 24px; border-radius: 16px; background: #2A1F18; border: 1px solid #5A3E30; display: flex; flex-direction: column; gap: 10px">
+          <span style="font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #FFB08F">SAY THIS · ONLY YOU CAN SEE IT</span>
+          <span style="font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 600">{{question}}</span>
+          <span style="font-size: 14px; color: #C9CBD2">Top survey answers: {{answers}}</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{isGuesser}}" hint-placeholder-val="{{ true }}">
+        <div style="padding: 20px; border-radius: 16px; background: #17181C; display: flex; flex-direction: column; gap: 12px">
+          <label for="guess" style="font-weight: 600">What did Ahsan ask? Say or type your answer to his question</label>
+          <div style="display: flex; gap: 8px">
+            <input id="guess" placeholder="Your answer" style="flex: 1; min-width: 0; min-height: 48px; padding: 0 14px; border-radius: 10px; border: 1px solid #2A2C33; background: #0E0F12; color: #F2F2F3; font: inherit; font-size: 16px">
+            <button style="min-height: 48px; padding: 0 18px; border-radius: 10px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">Lock in</button>
+          </div>
+          <span style="font-size: 13px; color: #A1A3AB">You can still hear and talk to [Friend 2]. Only the asker's voice is cut for you.</span>
+        </div>
+      </sc-if>
+
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; border-radius: 14px; background: #17181C">
+        <span style="font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 600; color: #FF8A5B; font-variant-numeric: tabular-nums">0:14 left</span>
+        <span style="color: #C9CBD2">[Friend 1] 2 correct · [Friend 2] 1 correct</span>
+        <sc-if value="{{isAsker}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; gap: 8px">
+            <button style="min-height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; cursor: pointer">[Friend 1] got it</button>
+            <button style="min-height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #2A2C33; background: #1F2026; color: #F2F2F3; font: inherit; cursor: pointer">[Friend 2] got it</button>
+            <button onClick="{{next}}" style="min-height: 40px; padding: 0 14px; border-radius: 8px; border: 0; background: #FF7A45; color: #0E0F12; font: inherit; font-weight: 600; cursor: pointer">Next question</button>
+          </div>
+        </sc-if>
+      </div>
+    </section>
+
+    <aside style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 16px">
+      <div style="padding: 20px; border-radius: 16px; background: #17181C; display: flex; flex-direction: column; gap: 12px">
+        <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600">Who hears whom</h2>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px">
+          <thead>
+            <tr style="color: #A1A3AB; text-align: left">
+              <th style="padding: 6px 0; font-weight: 500">Voice</th>
+              <th style="padding: 6px 4px; font-weight: 500">Friend 1</th>
+              <th style="padding: 6px 4px; font-weight: 500">Friend 2</th>
+              <th style="padding: 6px 0; font-weight: 500">Recording</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-top: 1px solid #2A2C33"><td style="padding: 8px 0; font-weight: 600">Ahsan (asker)</td><td style="padding: 8px 4px; color: #FFC58A">Muted</td><td style="padding: 8px 4px; color: #FFC58A">Muted</td><td style="padding: 8px 0; color: #7FD6A4">Recorded</td></tr>
+            <tr style="border-top: 1px solid #2A2C33"><td style="padding: 8px 0">[Friend 1]</td><td style="padding: 8px 4px; color: #A1A3AB">—</td><td style="padding: 8px 4px; color: #7FD6A4">Hears</td><td style="padding: 8px 0; color: #7FD6A4">Recorded</td></tr>
+            <tr style="border-top: 1px solid #2A2C33"><td style="padding: 8px 0">[Friend 2]</td><td style="padding: 8px 4px; color: #7FD6A4">Hears</td><td style="padding: 8px 4px; color: #A1A3AB">—</td><td style="padding: 8px 0; color: #7FD6A4">Recorded</td></tr>
+          </tbody>
+        </table>
+        <span style="font-size: 13px; color: #A1A3AB">Ahsan still hears both guessers. Viewers hear everyone, including the question.</span>
+      </div>
+      <div style="padding: 20px; border-radius: 16px; background: #17181C; display: flex; flex-direction: column; gap: 8px">
+        <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600">How it works</h2>
+        <span style="font-size: 14px; color: #C9CBD2">1. The asker reads a survey question out loud.</span>
+        <span style="font-size: 14px; color: #C9CBD2">2. The others can't hear it and lip-read instead.</span>
+        <span style="font-size: 14px; color: #C9CBD2">3. They answer the question; matches to the survey score points.</span>
+        <span style="font-size: 14px; color: #C9CBD2">4. Five questions, then the asker rotates.</span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { view: 'guesser', q: 0, recGame: true };
+    this.qs = [
+      { q: 'Name something people bring to the beach', a: 'towel, sunscreen, umbrella' },
+      { q: 'Name a reason you’d be late to work', a: 'traffic, overslept, kids' },
+      { q: 'Name a food you eat with your hands', a: 'pizza, burgers, tacos' },
+      { q: 'Name something in a junk drawer', a: 'batteries, rubber bands, pens' },
+      { q: 'Name a popular dog breed', a: 'labrador, golden retriever, poodle' }
+    ];
+  }
+  renderVals() {
+    const s = this.state;
+    const cur = this.qs[s.q];
+    return {
+      recGamePressed: s.recGame ? 'true' : 'false',
+      recGameBorder: s.recGame ? '#FF7A45' : '#2A2C33',
+      recGameTrack: s.recGame ? '#FF7A45' : '#3A3C44',
+      recGameAlign: s.recGame ? 'flex-end' : 'flex-start',
+      recGameLabel: s.recGame ? 'Game screen in active video' : 'Faces only in active video',
+      toggleRecGame: () => this.setState({ recGame: !s.recGame }),
+      views: [{ id: 'guesser', label: '[Friend 1], guessing' }, { id: 'asker', label: 'Ahsan, asking' }].map((v) => ({
+        label: v.label, checked: s.view === v.id ? 'true' : 'false', bg: s.view === v.id ? '#FF7A45' : 'transparent', fg: s.view === v.id ? '#0E0F12' : '#C9CBD2',
+        pick: () => this.setState({ view: v.id })
+      })),
+      isAsker: s.view === 'asker',
+      isGuesser: s.view === 'guesser',
+      qNum: s.q + 1,
+      question: cur.q,
+      answers: cur.a,
+      next: () => this.setState({ q: (s.q + 1) % this.qs.length }),
+      guessers: [
+        { shirt: '#6B3B4A', skin: '#8C6650', ring: s.view === 'guesser' ? '#FF7A45' : 'transparent', status: s.view === 'guesser' ? 'You · Ahsan muted' : 'Ahsan muted' },
+        { shirt: '#3B6B5A', skin: '#E0B896', ring: 'transparent', status: 'Ahsan muted' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

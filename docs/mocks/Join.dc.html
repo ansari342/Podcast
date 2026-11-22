@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studio Three — Join from a link</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E0F12}
+a{color:#FF8A5B}a:hover{color:#FFB08F}
+</style>
+</helmet>
+<div style="min-height: 960px; background: #0E0F12; color: #F2F2F3; font-family: Inter, system-ui, sans-serif; font-size: 15px; display: flex; flex-direction: column">
+  <header style="display: flex; align-items: center; gap: 10px; padding: 20px 40px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px">
+    <span style="width: 26px; height: 26px; border-radius: 7px; background: #FF7A45; display: inline-flex; align-items: center; justify-content: center; color: #0E0F12; font-size: 14px">3</span>
+    Studio Three
+  </header>
+  <main style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px">
+    <section style="width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 24px">
+      <div style="display: flex; gap: 8px; font-size: 13px; color: #A1A3AB">
+        <span style="color: #F2F2F3; font-weight: 600">1 Join</span><span aria-hidden="true">·</span><span>2 Green room</span><span aria-hidden="true">·</span><span>3 Studio</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span style="width: 44px; height: 44px; border-radius: 50%; background: #5B8CFF; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; color: #0E0F12">A</span>
+        <span style="color: #C9CBD2">Ahsan invited you to record</span>
+      </div>
+      <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 600; letter-spacing: -0.5px">Episode 15: [TITLE]</h1>
+
+      <sc-if value="{{signingIn}}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{signIn}}" style="min-height: 52px; border-radius: 12px; border: 0; background: #F2F2F3; color: #0E0F12; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer">Continue with Google</button>
+        <div style="display: flex; align-items: center; gap: 12px; color: #A1A3AB; font-size: 13px"><span style="flex: 1; height: 1px; background: #2A2C33"></span>or<span style="flex: 1; height: 1px; background: #2A2C33"></span></div>
+        <label style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: #A1A3AB">Email
+          <input type="email" placeholder="you@example.com" style="min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #2A2C33; background: #17181C; color: #F2F2F3; font: inherit; font-size: 16px">
+        </label>
+        <button onClick="{{signIn}}" style="min-height: 48px; border-radius: 12px; border: 1px solid #2A2C33; background: transparent; color: #F2F2F3; font: inherit; cursor: pointer">Email me a sign-in link</button>
+      </sc-if>
+
+      <sc-if value="{{ready}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 12px; background: #17181C">
+          <span style="width: 36px; height: 36px; border-radius: 50%; background: #FF7A45; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; color: #0E0F12">F</span>
+          <span style="flex: 1">Joining as <strong>[Friend 1]</strong></span>
+          <button onClick="{{signOut}}" style="min-height: 36px; padding: 0 10px; border: 0; background: transparent; color: #A1A3AB; font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer">Not you?</button>
+        </div>
+        <a href="GreenRoom.dc.html" style="display: inline-flex; justify-content: center; align-items: center; min-height: 52px; border-radius: 12px; background: #FF7A45; color: #0E0F12; font-weight: 600; text-decoration: none; font-size: 16px">Go to the green room</a>
+      </sc-if>
+
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { signedIn: false };
+  }
+  renderVals() {
+    return {
+      signingIn: !this.state.signedIn,
+      ready: this.state.signedIn,
+      signIn: () => this.setState({ signedIn: true }),
+      signOut: () => this.setState({ signedIn: false })
+    };
+  }
+}
+</script>
+</body>
+</html>
