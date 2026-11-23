@@ -4,8 +4,9 @@ Reference photos for animating the hosts in the 5-second intro. See
 [`../intro-credits-proposal.json`](../intro-credits-proposal.json) for the
 shot list, style and timing.
 
-Stills from the Episode 1 camera recordings. Two per host: a neutral face and
-an expression.
+Stills from the Episode 1 camera recordings. Two per host: `-1` is a relaxed,
+front-facing reference and `-2` is a big smile. Use the smile for the intro's
+pop-up and bonk frames.
 
 | Host  | Files                        | Notable features                                   | Prop in the intro          | Pops up on beat |
 |-------|------------------------------|----------------------------------------------------|----------------------------|-----------------|
