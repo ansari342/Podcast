@@ -3,7 +3,7 @@
  * Layout: /sessions/<sessionId>/<track>/<index>.<ext> plus manifest.json per session.
  * Chunks stay on disk until the uploader confirms them (Quality bar: zero lost recordings).
  */
-export type TrackKind = 'camera_raw' | 'mic_raw' | 'mic_clean' | 'screen' | 'active';
+export type TrackKind = 'camera_raw' | 'mic_raw' | 'mic_clean' | 'screen' | 'active' | 'phone';
 export type ChunkMeta = { track: TrackKind; index: number; startMs: number; durationMs: number; ext: string; bytes: number };
 export type SessionManifest = { sessionId: string; userId: string; epochMs: number; mimeType: string; sampleRate: number; chunks: ChunkMeta[]; stoppedAt?: number };
 

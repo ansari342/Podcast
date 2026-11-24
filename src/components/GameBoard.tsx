@@ -4,6 +4,7 @@ import type { SharedStore } from '@/lib/sync';
 import type { Person } from '@/hooks/useLiveRoom';
 import { GAMES, rulesFor, type GameId } from '@/lib/games';
 import * as C from '@/lib/gameContent';
+import { autoPoints, newFastMoneyRound, type Survey } from '@/lib/fastMoney';
 
 /**
  * Every game board (G1–G24). State lives in the shared store under `g.<round>.` so all three browsers see the same
@@ -20,9 +21,9 @@ function initMeta(id: GameId, people: Person[]): M {
   const someone = () => C.pick(who);
   switch (id) {
     case 'imposter': { const cat = C.pick(Object.keys(C.IMPOSTER)); return { phase: 'clues', cat, word: C.pick(C.IMPOSTER[cat]), imp: someone() }; }
-    case 'imposter-question': { const [q, iq] = C.pick(C.IMPOSTER_QUESTIONS); return { phase: 'answer', q, iq, imp: someone() }; }
+    case 'imposter-question': { const [q, iq] = C.pick(C.IMPOSTER_QUESTIONS); const imp = someone(); return { phase: 'answer', q, iq, imp, reader: C.pick(who.filter((w) => w !== imp)) ?? imp }; }
     case 'tier-list': { const t = C.pick(C.TIER_LISTS); return { topic: t.topic, items: t.items }; }
-    case 'fast-money': return { phase: 'ask', asker: someone(), qs: C.shuffle(C.FAST_MONEY).slice(0, 5), i: 0 };
+    case 'fast-money': { const asker = someone(); return { phase: 'ask', asker, guessers: who.filter((w) => w !== asker), qs: newFastMoneyRound(5), i: 0 }; }
     case 'blind-ranking': { const t = C.pick(C.BLIND_RANKING); return { topic: t.topic, items: C.shuffle(t.items).slice(0, 5) }; }
     case 'auction-draft': { const p = C.pick(C.DRAFT_POOLS); return { phase: 'bid', cat: p.cat, pool: C.shuffle(p.items).slice(0, 5 * who.length + 3) }; }
     case 'snake-draft': return { phase: 'pick', cat: C.pick(C.SNAKE_CATEGORIES), order: C.shuffle(who), rounds: 5 };
@@ -59,7 +60,11 @@ export function hiddenForMe(s: SharedStore, me: string): string[] {
 }
 
 /** What the active video shows for the game (never a secret before the reveal). */
-export function caption(s: SharedStore, people: Person[]): { title: string; big: string; lines: string[] } | null {
+export function caption(s: SharedStore, people: Person[]): { title: string; big: string; lines: string[]; table?: FmTable; image?: string; score?: string } | null {
+  const c = captionBody(s, people); if (!c) return null;
+  const score = scoreLine(s); return score ? { ...c, score } : c;
+}
+function captionBody(s: SharedStore, people: Person[]): { title: string; big: string; lines: string[]; table?: FmTable; image?: string } | null {
   const x = metaOf(s); if (!x) return null;
   const { g, m } = x; const P = `g.${g.round}.`; const get = (k: string) => s.get<M>(P + k);
   const name = (id: string) => people.find((p) => p.identity === id)?.name ?? 'Someone';
@@ -67,11 +72,18 @@ export function caption(s: SharedStore, people: Person[]): { title: string; big:
   const rev = !!get('revealed');
   switch (g.id) {
     case 'imposter': return { title: game.name, big: m.phase === 'reveal' ? `${name(m.imp)} was the imposter` : `Category: ${m.cat}`, lines: m.phase === 'reveal' ? [`The word was ${m.word}`] : [] };
-    case 'imposter-question': return { title: game.name, big: m.phase === 'answer' ? 'Answering…' : m.q, lines: m.phase === 'answer' ? [] : Object.entries(s.under<string>(P + 'ans.')).map(([id, a]) => `${name(id)}: ${a}`).concat(m.phase === 'reveal' ? [`Imposter: ${name(m.imp)} (“${m.iq}”)`] : []) };
+    case 'imposter-question': {
+      const ans = s.under<string>(P + 'ans.'); const shown = s.under<boolean>(P + 'shown.');
+      const qOut = m.phase === 'question' || m.phase === 'vote' || m.phase === 'reveal';
+      const lines = Object.entries(ans).filter(([id]) => qOut || shown[id]).map(([id, a]) => `${name(id)}: ${a}`);
+      return { title: game.name, big: m.phase === 'answer' ? 'Answering…' : qOut ? m.q : 'What was the question?', lines: lines.concat(m.phase === 'reveal' ? [`Imposter: ${name(m.imp)} (“${m.iq}”)`] : []) };
+    }
     case 'tier-list': { const pl = s.under<string>(P + 'tier.'); const all = [...m.items, ...Object.values(s.under<string>(P + 'add.'))]; return { title: `${game.name}: ${m.topic}`, big: '', lines: ['S', 'A', 'B', 'C', 'D', 'F'].map((t) => `${t}  ${all.filter((it: string) => pl[slug(it)] === t).join(' · ')}`) }; }
-    case 'fast-money': return { title: game.name, big: m.phase === 'reveal' ? m.qs[m.i] : `Question ${m.i + 1} of ${m.qs.length}`, lines: m.phase === 'reveal' ? Object.entries(s.under<string>(`${P}guess.${m.i}.`)).map(([id, a]) => `${name(id)}: ${a}`) : [`${name(m.asker)} is asking — the others can’t hear`] };
+    case 'fast-money': return m.phase === 'ask'
+      ? { title: game.name, big: `Question ${m.i + 1} of ${m.qs.length}`, lines: [`${name(m.asker)} is asking — the others can’t hear`] }
+      : { title: game.name, big: '', lines: [], table: fmTable(s, P, m, name) };
     case 'trivia': return { title: game.name, big: m.q, lines: rev ? [m.a] : [] };
-    case 'guess-the-price': return { title: game.name, big: m.item, lines: rev ? [`$${m.price.toLocaleString()}`] : [] };
+    case 'guess-the-price': return { title: game.name, big: m.item, lines: rev ? [`$${m.price.toLocaleString()}`] : [], image: m.wiki ? imageUrl(m.wiki) : undefined };
     case 'most-likely-to': case 'red-green-flag': return { title: game.name, big: m.prompt, lines: [] };
     case 'thermostat': case 'thermostat-questions': return { title: game.name, big: rev ? `The number was ${m.n}` : `${name(m.holder)} has a number`, lines: [] };
     case 'higher-lower': { const i = s.get<number>(P + 'i') ?? 0; return { title: game.name, big: `${m.items[i].name}: ${m.items[i].value} m`, lines: [`vs ${m.items[i + 1]?.name ?? '—'}`] }; }
@@ -119,25 +131,50 @@ export function GameBoard({ store, me, people, isHost }: { store: SharedStore; m
     <AnswerBox key={P + k} cur={get<string>(`${k}.${me}`)} placeholder={placeholder} numeric={numeric} onLock={(v) => set({ [`${k}.${me}`]: v })} />;
   const Answers = ({ k }: { k: string }) => <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{Object.entries(under(k + '.')).map(([id, a]) => <span key={id}><strong>{name(id)}</strong>: {String(a)}</span>)}</div>;
   let body: React.ReactNode;
+  let winners: string[] | null = null; // set when this round has a clear winner (feeds the scoreboard)
+  /** Imposter games: the group wins if the imposter got the most votes outright, otherwise the imposter wins. */
+  const impWin = () => { const t = tally('vote'); const top = Math.max(0, ...Object.values(t)); const lead = Object.keys(t).filter((id) => t[id] === top);
+    return top > 0 && lead.length === 1 && lead[0] === m.imp ? who.filter((id) => id !== m.imp) : [m.imp]; };
   switch (g.id) {
     case 'imposter': {
-      const t = tally('vote');
+      const t = tally('vote'); if (m.phase === 'reveal') winners = impWin();
       body = (<>
         {m.phase !== 'reveal' && (m.imp === me ? <Secret>You’re the imposter. Category: {m.cat}</Secret> : <Secret>Word: {m.word}</Secret>)}
         <Big>Category: {m.cat}</Big>
-        {m.phase === 'clues' && (<><span className="muted">Go around: one-word clues, three rounds.</span><button className="btn btn-primary" onClick={() => setM({ phase: 'vote' })}>Start voting</button></>)}
+        {m.phase === 'clues' && (<><button className="btn btn-primary" onClick={() => setM({ phase: 'vote' })}>Start voting</button></>)}
         {m.phase === 'vote' && (<><span>Who’s the imposter? ({voted('vote')}/{who.length})</span>{VotePeople({ k: "vote",})}<button className="btn btn-primary" onClick={() => setM({ phase: 'reveal' })}>Reveal</button></>)}
         {m.phase === 'reveal' && (<><Good>{name(m.imp)} was the imposter · word: {m.word}</Good><span className="muted">{Object.entries(t).map(([id, n]) => `${name(id)} ${n}`).join(' · ')}</span>{Again}</>)}
       </>); break;
     }
     case 'imposter-question': {
-      const answered = voted('ans');
+      const answered = voted('ans'); const ans = under('ans.'); const shown = under<boolean>('shown.');
+      const allShown = Object.keys(ans).length > 0 && Object.keys(ans).every((id) => shown[id]);
+      const reader: string = m.reader ?? who.find((w) => w !== m.imp) ?? m.imp;
+      const qOut = m.phase === 'question' || m.phase === 'vote' || m.phase === 'reveal';
+      if (m.phase === 'reveal') winners = impWin();
       body = (<>
-        {m.phase === 'answer' && (<><Secret>{m.imp === me ? m.iq : m.q}</Secret>{Answer({ k: "ans", placeholder: "Your answer",})}<span className="muted">{answered}/{who.length} answered</span>
-          {answered >= who.length || isHost ? <button className="btn btn-primary" onClick={() => setM({ phase: 'answers' })}>Show answers</button> : null}</>)}
-        {m.phase !== 'answer' && (<><Big>{m.q}</Big>{Answers({ k: "ans",})}</>)}
-        {m.phase === 'answers' && <button className="btn btn-primary" onClick={() => setM({ phase: 'vote' })}>Vote</button>}
-        {m.phase === 'vote' && (<><span>Who got a different question? ({voted('vote')}/{who.length})</span>{VotePeople({ k: "vote",})}<button className="btn btn-primary" onClick={() => setM({ phase: 'reveal' })}>Reveal</button></>)}
+        {m.phase === 'answer' && (<><Secret>{m.imp === me ? m.iq : m.q}</Secret>{Answer({ k: "ans", placeholder: "Your answer",})}<span className="muted" style={{ fontSize: 13 }}>{answered}/{who.length}</span>
+          {answered >= who.length || isHost ? <button className="btn btn-primary" onClick={() => setM({ phase: 'answers' })}>Reveal answers</button> : null}</>)}
+        {m.phase === 'answers' && (<>
+          <Big>What was the question?</Big>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 300 }}>
+            {people.map((p) => { const a = ans[p.identity]; return (
+              <div key={p.identity} style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderRadius: 10, background: 'var(--panel-2)' }}>
+                <strong>{p.isLocal ? 'You' : p.name}</strong>
+                {a === undefined ? <span className="muted">No answer</span>
+                  : shown[p.identity] ? <span style={{ fontSize: 20, fontWeight: 600 }}>{a}</span>
+                  : p.identity === me ? <button className="btn btn-primary" style={{ minHeight: 34 }} onClick={() => set({ [`shown.${me}`]: true })}>Reveal my answer</button>
+                  : <span className="muted">Hidden</span>}
+              </div>); })}
+          </div>
+          {!allShown && <button className="btn" style={{ fontSize: 13, minHeight: 32 }} onClick={() => set(Object.fromEntries(Object.keys(ans).map((id) => [`shown.${id}`, true])))}>Reveal everyone’s</button>}
+          {allShown && (reader === me
+            ? <><Secret>Read aloud: {m.q}</Secret><button className="btn btn-primary" onClick={() => setM({ phase: 'question' })}>Show question</button></>
+            : <><Good>{name(reader)} is reading the question out loud</Good><button className="btn" style={{ fontSize: 13, minHeight: 32 }} onClick={() => setM({ phase: 'question' })}>Show the question</button></>)}
+        </>)}
+        {qOut && (<><Big>{m.q}</Big>{Answers({ k: "ans",})}</>)}
+        {m.phase === 'question' && <button className="btn btn-primary" onClick={() => setM({ phase: 'vote' })}>Vote</button>}
+        {m.phase === 'vote' && (<><span>Who’s the imposter?</span>{VotePeople({ k: "vote",})}<button className="btn btn-primary" onClick={() => setM({ phase: 'reveal' })}>Reveal</button></>)}
         {m.phase === 'reveal' && (<><Good>{name(m.imp)} was the imposter — their question: “{m.iq}”</Good>{Again}</>)}
       </>); break;
     }
@@ -162,17 +199,8 @@ export function GameBoard({ store, me, people, isHost }: { store: SharedStore; m
       </>); break;
     }
     case 'fast-money': {
-      const asker = m.asker === me; const q = m.qs[m.i];
-      body = (<>
-        <span className="muted">Asker: {asker ? 'you' : name(m.asker)} · Question {m.i + 1} of {m.qs.length}</span>
-        {m.phase === 'ask' && (asker
-          ? <><Secret>{q}</Secret><span className="muted">Say it out loud — they can’t hear you, they have to read your lips.</span></>
-          : <><Big>Read {name(m.asker)}’s lips</Big>{Answer({ k: `guess.${m.i}`, placeholder: "Your answer",})}</>)}
-        {m.phase === 'ask' && <button className="btn btn-primary" onClick={() => setM({ phase: 'reveal' })}>Reveal question</button>}
-        {m.phase === 'reveal' && (<><Big>{q}</Big>{Answers({ k: `guess.${m.i}`,})}
-          <Row>{m.i + 1 < m.qs.length ? <button className="btn btn-primary" onClick={() => setM({ phase: 'ask', i: m.i + 1 })}>Next question</button> : null}
-            <button className="btn" onClick={() => startGame(store, 'fast-money', people, { asker: who[(who.indexOf(m.asker) + 1) % who.length] })}>Next asker</button></Row></>)}
-      </>); break;
+      if (m.phase === 'reveal') winners = fmWinners(fmTable(store, P, m, name), m.guessers ?? []);
+      body = <FastMoney store={store} P={P} m={m} me={me} people={people} name={name} answer={(k, ph) => Answer({ k, placeholder: ph })} />; break;
     }
     case 'blind-ranking': {
       const shown = get<number>('shown') ?? 0; const item = m.items[shown] as string | undefined;
@@ -265,7 +293,7 @@ export function GameBoard({ store, me, people, isHost }: { store: SharedStore; m
         set({ i: i + 1, last: { ok, v: b.value }, [`streak.${turn}`]: s, [`best.${turn}`]: Math.max(best[turn] ?? 0, ok ? s : streak), ...(ok ? {} : { turn: turnIdx + 1 }) });
       };
       body = (<>
-        <span className="muted">How tall, in meters?</span>
+        
         {last && <span style={{ color: last.ok ? 'var(--good)' : 'var(--rec)' }}>{last.ok ? 'Correct' : 'Wrong'} — {m.items[i].name} is {last.v} m</span>}
         {b ? (<><Big>{a.name}: {a.value} m</Big><span>vs</span><Big>{b.name}</Big>
           {turn === me || people.length === 1 ? <Row><button className="btn btn-primary" onClick={() => guess(true)}>Higher</button><button className="btn btn-primary" onClick={() => guess(false)}>Lower</button></Row>
@@ -276,7 +304,7 @@ export function GameBoard({ store, me, people, isHost }: { store: SharedStore; m
     }
     case 'trivia': {
       const closest = () => { if (m.n === undefined) return null; const g2 = Object.entries(under('guess.')).map(([id, v]) => [id, Math.abs(parseFloat(String(v).replace(/[^0-9.-]/g, '')) - m.n)] as const).filter(([, d]) => !Number.isNaN(d)).sort((x2, y) => x2[1] - y[1]); return g2[0]?.[0]; };
-      const w = revealed ? closest() : null;
+      const w = revealed ? closest() : null; if (w) winners = [w];
       body = (<><Big>{m.q}</Big>{people.length > 1 && Answer({ k: "guess", placeholder: "Your guess", numeric: m.n !== undefined,})}
         {revealed && (<><Good>{m.a}</Good>{Answers({ k: "guess",})}{w && <span>Closest: <strong>{name(w)}</strong></span>}</>)}
         <Row>{!revealed && <button className="btn btn-primary" onClick={reveal}>Reveal answer</button>}<button className="btn" onClick={again}>Next question</button></Row></>); break;
@@ -305,7 +333,7 @@ export function GameBoard({ store, me, people, isHost }: { store: SharedStore; m
     case 'guess-the-sound': {
       const maker = m.maker === me; const endsAt = get<number>('endsAt');
       body = (<>
-        {maker ? <><Secret>Make the sound of: {m.sound}</Secret><span className="muted">Your video is hidden from them until the reveal.</span></> : <Big>Listen to {name(m.maker)}…</Big>}
+        {maker ? <><Secret>Make the sound of: {m.sound}</Secret></> : <Big>Listen to {name(m.maker)}…</Big>}
         {endsAt ? <Timer endsAt={endsAt} /> : maker && <button className="btn btn-primary" onClick={() => set({ endsAt: Date.now() + 3000 })}>Go (3 seconds)</button>}
         {!maker && Answer({ k: "guess", placeholder: "What was it?",})}
         {revealed ? <><Good>{m.sound}</Good>{Answers({ k: "guess",})}</> : <button className="btn" onClick={reveal}>Reveal</button>}
@@ -325,7 +353,8 @@ export function GameBoard({ store, me, people, isHost }: { store: SharedStore; m
     case 'guess-the-price': {
       const parsed = Object.entries(under('guess.')).map(([id, v]) => [id, parseFloat(String(v).replace(/[^0-9.]/g, ''))] as const).filter(([, n]) => !Number.isNaN(n));
       const win = parsed.filter(([, n]) => n <= m.price).sort((a, b) => b[1] - a[1])[0];
-      body = (<><Big>{m.item}</Big><span className="muted">Launch price in US dollars</span>
+      if (revealed) winners = win ? [win[0]] : [];
+      body = (<>{m.wiki && <ItemPhoto q={m.wiki} />}<Big>{m.item}</Big>
         {Answer({ k: "guess", placeholder: "$", numeric: true,})}
         {revealed ? <><Good>${m.price.toLocaleString()}</Good>{Answers({ k: "guess",})}<span>{win ? <>Closest without going over: <strong>{name(win[0])}</strong></> : 'Everyone went over'}</span></> : <button className="btn btn-primary" onClick={reveal}>Reveal price</button>}
         {Again}</>); break;
@@ -333,11 +362,16 @@ export function GameBoard({ store, me, people, isHost }: { store: SharedStore; m
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center', width: '100%' }}>
-      <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--accent-text)' }}>{game.name.toUpperCase()}</span>
-      <span className="muted" style={{ fontSize: 13, maxWidth: 560 }}>{rulesFor(game, people.length)}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center', width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--accent-text)' }}>{game.name.toUpperCase()}</span>
+        <span title={rulesFor(game, people.length)} aria-label="Rules" style={{ cursor: 'help', width: 18, height: 18, borderRadius: 9, border: '1px solid var(--line)', fontSize: 11, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>i</span>
+        <span style={{ flex: 1 }} />
+        <Scoreboard store={store} people={people} compact />
+        {isHost && <button className="btn btn-ghost" aria-label="End game" title="End game" style={{ minHeight: 28, padding: '0 8px', fontSize: 18 }} onClick={() => endGame(store)}>×</button>}
+      </div>
       {body}
-      {isHost && <button className="btn" style={{ background: 'transparent', color: 'var(--muted)', fontSize: 13, minHeight: 32 }} onClick={() => endGame(store)}>End game</button>}
+      <RoundWinner key={g.round} store={store} round={g.round} people={people} suggested={winners} />
     </div>
   );
 }
@@ -356,4 +390,190 @@ function AnswerBox({ cur, placeholder, numeric, onLock }: { cur?: string; placeh
       <input className="input" autoFocus inputMode={numeric ? 'decimal' : undefined} placeholder={placeholder} value={v} onChange={(e) => setV(e.target.value)} style={{ width: 260 }} />
       <button className="btn btn-primary">Lock in</button>
     </form>);
+}
+
+/* ---------------- Fast Money (G3) ---------------- */
+
+export type FmTable = {
+  cols: string[];
+  rows: { q: string | null; cells: { a: string | null; p: number | null }[] }[];
+  totals: number[];
+  done: boolean;
+};
+
+/** Board state for the reveal: answers come out one cell at a time (row by row), then points the same way. */
+export function fmTable(s: SharedStore, P: string, m: M, name: (id: string) => string): FmTable {
+  const G: string[] = m.guessers ?? []; const qs: Survey[] = m.qs ?? [];
+  const fa = s.get<number>(P + 'fa') ?? 0; const fp = s.get<number>(P + 'fp') ?? 0;
+  const totals = G.map(() => 0);
+  const rows = qs.map((sv, i) => ({
+    q: fa > i * G.length ? sv.q : null,
+    cells: G.map((id, j) => {
+      const k = i * G.length + j; const p = k < fp ? fmPoints(s, P, sv, i, id) : null;
+      if (p !== null) totals[j] += p;
+      return { a: k < fa ? (s.get<string>(`${P}guess.${i}.${id}`) || '—') : null, p };
+    }),
+  }));
+  return { cols: G.map(name), rows, totals, done: G.length > 0 && fp >= qs.length * G.length };
+}
+const fmPoints = (s: SharedStore, P: string, sv: Survey, i: number, id: string) =>
+  s.get<number>(`${P}pts.${i}.${id}`) ?? autoPoints(s.get<string>(`${P}guess.${i}.${id}`), sv);
+
+/** Who won a finished Fast Money: highest total among guessers; a lone guesser needs 200 (the show's rule). */
+export function fmWinners(t: FmTable, guessers: string[]): string[] | null {
+  if (!t.done || !guessers.length) return null;
+  if (guessers.length === 1) return t.totals[0] >= 200 ? [guessers[0]] : [];
+  const top = Math.max(...t.totals); return top > 0 ? guessers.filter((_, j) => t.totals[j] === top) : [];
+}
+
+function FmBoardView({ t, canEdit, onEdit }: { t: FmTable; canEdit: boolean; onEdit: (row: number, col: number, v: number) => void }) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const cell: React.CSSProperties = { background: '#000', color: '#fff', fontWeight: 800, minHeight: 46, display: 'flex', alignItems: 'center', padding: '4px 12px', fontSize: 20, lineHeight: 1.1, textAlign: 'left' };
+  const cols = t.cols.map(() => 'minmax(0,1fr) 62px').join(' ');
+  return (
+    <div style={{ width: '100%', maxWidth: 820, padding: 14, borderRadius: 6, border: '3px solid #0B1D4D', background: 'radial-gradient(ellipse at center, #2E62D0 0%, #1B3F98 55%, #102A6E 100%)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: cols, columnGap: 8 }}>
+        {t.cols.map((c, j) => <span key={j} style={{ gridColumn: 'span 2', color: '#fff', fontWeight: 800, fontSize: 15, textAlign: 'left', letterSpacing: 0.5 }}>{c.toUpperCase()}</span>)}
+      </div>
+      {t.rows.map((r, i) => (
+        <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span style={{ color: '#C7D6FF', fontSize: 13, minHeight: 16, textAlign: 'left' }}>{r.q ? `${i + 1}. ${r.q}` : ''}</span>
+          <div style={{ display: 'grid', gridTemplateColumns: cols, columnGap: 8 }}>
+            {r.cells.map((c, j) => {
+              const key = `${i}.${j}`;
+              return [
+                <div key={key + 'a'} style={{ ...cell, fontSize: (c.a?.length ?? 0) > 16 ? 15 : 20 }}>{c.a ?? ''}</div>,
+                <div key={key + 'p'} style={{ ...cell, justifyContent: 'center', padding: 0, cursor: canEdit && c.p !== null ? 'pointer' : 'default' }}
+                  title={canEdit && c.p !== null ? 'Click to change the points' : undefined}
+                  onClick={() => canEdit && c.p !== null && setEditing(key)}>
+                  {editing === key
+                    ? <input autoFocus type="number" min={0} max={200} defaultValue={c.p ?? 0} style={{ width: 54, background: '#000', color: '#fff', border: '1px solid #FF8A5B', fontWeight: 800, fontSize: 18, textAlign: 'center' }}
+                        onBlur={(e) => { onEdit(i, j, Math.max(0, Math.min(200, Math.round(Number(e.target.value) || 0)))); setEditing(null); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEditing(null); }} />
+                    : c.p ?? ''}
+                </div>,
+              ];
+            })}
+          </div>
+        </div>
+      ))}
+      <div style={{ display: 'grid', gridTemplateColumns: cols, columnGap: 8, marginTop: 4 }}>
+        {t.totals.map((n, j) => [
+          <span key={j + 'l'} style={{ color: '#fff', fontWeight: 800, textAlign: 'right', alignSelf: 'center', paddingRight: 6 }}>TOTAL</span>,
+          <div key={j + 'n'} style={{ ...cell, justifyContent: 'center', padding: 0, background: '#0B1D4D', border: '2px solid #fff' }}>{n}</div>,
+        ])}
+      </div>
+    </div>
+  );
+}
+
+function FastMoney({ store, P, m, me, people, name, answer }: {
+  store: SharedStore; P: string; m: M; me: string; people: Person[]; name: (id: string) => string;
+  answer: (k: string, placeholder: string) => React.ReactNode;
+}) {
+  const G: string[] = m.guessers ?? []; const qs: Survey[] = m.qs; const sv = qs[m.i];
+  const set = (kv: Record<string, unknown>) => store.setMany(Object.fromEntries(Object.entries(kv).map(([k, v]) => [P + k, v])));
+  const setM = (patch: M) => store.set(P + 'm', { ...m, ...patch });
+  const who = people.map((p) => p.identity);
+  // The asker runs the game; if they've dropped out, anyone can carry on.
+  const drives = m.asker === me || !who.includes(m.asker);
+  const N = qs.length * G.length;
+  const fa = store.get<number>(P + 'fa') ?? 0; const fp = store.get<number>(P + 'fp') ?? 0;
+  const next = (nx: string) => startGame(store, 'fast-money', people, { asker: nx, guessers: who.filter((w) => w !== nx) });
+
+  if (m.phase === 'ask') {
+    const locked = G.filter((id) => store.get(`${P}guess.${m.i}.${id}`) != null);
+    return (<>
+      <span className="muted" style={{ fontSize: 13 }}>{m.i + 1} / {qs.length}</span>
+      {m.asker === me
+        ? <Secret>{sv.q}</Secret>
+        : G.includes(me) ? <><Big>Read the lips</Big>{answer(`guess.${m.i}`, 'Type your answer')}</> : <Big>{name(m.asker)} is asking</Big>}
+      <Row>{G.map((id) => <span key={id} title={name(id)} style={{ fontSize: 13, color: locked.includes(id) ? 'var(--good)' : 'var(--muted)' }}>{locked.includes(id) ? '●' : '○'} {name(id)}</span>)}</Row>
+      {drives && (m.i + 1 < qs.length
+        ? <button className="btn btn-primary" onClick={() => setM({ i: m.i + 1 })}>Next question</button>
+        : <button className="btn btn-primary" onClick={() => { setM({ phase: 'reveal' }); set({ fa: 0, fp: 0 }); }}>Reveal</button>)}
+    </>);
+  }
+
+  const t = fmTable(store, P, m, name);
+  return (<>
+    <FmBoardView t={t} canEdit={drives} onEdit={(i, j, v) => set({ [`pts.${i}.${G[j]}`]: v })} />
+    {drives
+      ? (fa < N ? <button className="btn btn-primary" onClick={() => set({ fa: fa + 1 })}>Next answer</button>
+        : fp < N ? <button className="btn btn-primary" onClick={() => set({ fp: fp + 1 })}>Next points</button>
+        : null)
+      : !t.done && <span className="muted">{name(m.asker)} is revealing</span>}
+    {t.done && <Good>{G.length === 1
+      ? (t.totals[0] >= 200 ? `${t.cols[0]} hit 200 with ${t.totals[0]}!` : `${t.cols[0]} scored ${t.totals[0]} — ${200 - t.totals[0]} short of 200`)
+      : (() => { const w = fmWinners(t, G) ?? []; return !w.length ? 'Nobody scored' : w.length > 1 ? `Tie at ${Math.max(...t.totals)}` : `${name(w[0])} wins with ${Math.max(...t.totals)}`; })()}</Good>}
+    {drives && (
+      <details style={{ fontSize: 13, textAlign: 'left', maxWidth: 820, width: '100%' }}>
+        <summary className="muted" style={{ cursor: 'pointer' }}>Survey</summary>
+        {qs.map((s, i) => <div key={i} style={{ marginTop: 6 }}><strong>{i + 1}. {s.q}</strong><div className="muted">{s.answers.map((a) => `${a.a} ${a.n}`).join(' · ')}</div></div>)}
+      </details>)}
+    {t.done && <Row>
+      <button className="btn btn-primary" onClick={() => next(m.asker)}>Play again</button>
+      {who.length > 1 && <button className="btn" onClick={() => next(who[(who.indexOf(m.asker) + 1) % who.length])}>Next asker</button>}
+    </Row>}
+  </>);
+}
+
+/* ---------------- Scoreboard: one point per mini game won ---------------- */
+
+type Wins = Record<string, string>; // identity → name, for one round
+export function scores(store: SharedStore): { id: string; name: string; pts: number }[] {
+  const from = store.get<number>('scoreFrom') ?? 0; const t = new Map<string, { id: string; name: string; pts: number }>();
+  for (const [round, w] of Object.entries(store.under<Wins | null>('win.'))) {
+    if (!w || Number(round) <= from) continue;
+    for (const [id, nm] of Object.entries(w)) { const cur = t.get(id) ?? { id, name: nm, pts: 0 }; cur.pts++; t.set(id, cur); }
+  }
+  return [...t.values()].sort((a, b) => b.pts - a.pts);
+}
+export const scoreLine = (store: SharedStore) => scores(store).map((x) => `${x.name} ${x.pts}`).join('  ·  ');
+
+export function Scoreboard({ store, people, compact }: { store: SharedStore; people: Person[]; compact?: boolean }) {
+  const list = scores(store);
+  for (const p of people) if (!list.some((x) => x.id === p.identity)) list.push({ id: p.identity, name: p.name, pts: 0 });
+  const top = list[0]?.pts ?? 0;
+  const reset = () => { const rounds = Object.keys(store.under('win.')).map(Number); store.set('scoreFrom', Math.max(store.get<GameRef>('game')?.round ?? 0, ...rounds, 0)); };
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+      {!compact && <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--muted)' }}>SCORE</span>}
+      {list.map((x) => (
+        <span key={x.id} style={{ padding: compact ? '2px 10px' : '4px 12px', borderRadius: 999, fontWeight: 600, fontSize: compact ? 13 : 14, background: top > 0 && x.pts === top ? 'var(--accent)' : 'var(--panel-2)', color: top > 0 && x.pts === top ? 'var(--bg)' : undefined }}>
+          {x.name} {x.pts}
+        </span>))}
+      {top > 0 && !compact && <button className="btn" style={{ background: 'transparent', color: 'var(--muted)', fontSize: 12, minHeight: 28 }} onClick={reset}>Reset</button>}
+    </div>);
+}
+
+/** Who won this round. Filled in automatically when the game has a clear winner; anyone can change it. */
+function RoundWinner({ store, round, people, suggested }: { store: SharedStore; round: number; people: Person[]; suggested: string[] | null }) {
+  const k = `win.${round}`; const cur = store.get<Wins | null>(k);
+  const sugKey = suggested?.join(',');
+  useEffect(() => {
+    if (suggested && store.get(k) === undefined) store.set(k, Object.fromEntries(suggested.map((id) => [id, people.find((p) => p.identity === id)?.name ?? 'Someone'])));
+  }, [sugKey, k]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = (p: Person) => { const w = { ...(cur ?? {}) }; if (w[p.identity]) delete w[p.identity]; else w[p.identity] = p.name; store.set(k, w); };
+  const [open, setOpen] = useState(false);
+  const names = Object.values(cur ?? {});
+  if (!open) return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+      {names.length ? <span style={{ fontWeight: 600 }}>🏆 {names.join(' & ')} +1</span> : null}
+      <button className="btn btn-ghost" style={{ minHeight: 28, fontSize: 12 }} onClick={() => setOpen(true)}>{names.length ? 'Change' : '+1 winner'}</button>
+    </div>);
+  return (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', fontSize: 13 }}>
+      {people.map((p) => { const on = !!cur?.[p.identity]; return (
+        <button key={p.identity} className="btn" aria-pressed={on} style={{ minHeight: 28, fontSize: 13, background: on ? 'var(--accent)' : undefined, color: on ? 'var(--bg)' : undefined }} onClick={() => toggle(p)}>{p.isLocal ? 'Me' : p.name}</button>); })}
+      <button className="btn btn-ghost" style={{ minHeight: 28, fontSize: 12 }} onClick={() => setOpen(false)}>Done</button>
+    </div>);
+}
+
+export const imageUrl = (q: string) => `/api/image?q=${encodeURIComponent(q)}`;
+/** Guess the Price photo; hides itself if no image comes back. */
+function ItemPhoto({ q }: { q: string }) {
+  const [ok, setOk] = useState(true);
+  if (!ok) return null;
+  return <img src={imageUrl(q)} alt="" onError={() => setOk(false)} style={{ maxWidth: 'min(420px, 90%)', maxHeight: 260, objectFit: 'contain', borderRadius: 12, background: '#fff', padding: 8 }} />; // eslint-disable-line @next/next/no-img-element
 }

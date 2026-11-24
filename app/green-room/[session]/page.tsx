@@ -4,6 +4,7 @@ import { use, useEffect, useRef, useState } from 'react';
 import { useDevices } from '@/hooks/useDevices';
 import { runChecks, type Check } from '@/lib/checks';
 import { fixThis, testTone, type FixStep } from '@/lib/fixThis';
+import { CompanionEntry } from '@/components/CompanionEntry';
 
 /** Green room (brief: Screens → 2). Only mic + speaker menus are visible; everything else is under "More settings and troubleshooting". */
 export default function GreenRoom({ params }: { params: Promise<{ session: string }> }) {
@@ -26,6 +27,7 @@ export default function GreenRoom({ params }: { params: Promise<{ session: strin
     <>
       <header className="topnav"><div className="brand"><span className="brand-mark">3</span>Studio Three</div></header>
       <main style={{ maxWidth: 1120, margin: '0 auto', padding: '32px 24px', display: 'flex', flexWrap: 'wrap', gap: 40 }}>
+        <div style={{ flex: '1 1 100%' }}><CompanionEntry room={session} /></div>
         <section style={{ flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <video ref={video} autoPlay muted playsInline style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 16, background: '#2B2F3A', transform: 'scaleX(-1)' }} />
           {d.error && <p style={{ color: 'var(--warn)' }}>Camera or mic blocked: {d.error} <button className="btn" onClick={runFix}>Fix this</button></p>}

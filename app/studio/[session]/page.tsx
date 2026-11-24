@@ -8,7 +8,7 @@ import { useLeaveGuard } from '@/hooks/useLeaveGuard';
 import { useIdentity, useLiveRoom, type Person } from '@/hooks/useLiveRoom';
 import { useStore } from '@/lib/sync';
 import { GAMES, isPlayable, type GameId } from '@/lib/games';
-import { GameBoard, caption, hiddenForMe, mutedForMe, startGame, type GameRef } from '@/components/GameBoard';
+import { GameBoard, Scoreboard, caption, hiddenForMe, mutedForMe, startGame, type GameRef } from '@/components/GameBoard';
 import { SAMPLE_PLAN, nextAfter, type PlanItem } from '@/lib/plan';
 import { SOUNDS, playSound, preloadSounds, onSfx, sfxContext, type CustomSound } from '@/lib/sfx';
 import { LocalRecorder, TrackRecorder } from '@/lib/recorder/LocalRecorder';
@@ -19,11 +19,12 @@ import { chunkStore } from '@/lib/recorder/chunkStore';
 import { pickSticker, pickTarget, place, trackFace, type FaceBox, type Overlay } from '@/lib/overlay';
 import { fixThis, testTone, SYMPTOMS, type FixStep, type Symptom } from '@/lib/fixThis';
 import { runChecks, type Check } from '@/lib/checks';
+import { StudioSetProcessor, isRoomSet } from '@/lib/studioSet';
 
 type Tab = 'games' | 'topics' | 'setup' | null;
 type Status = { up: number; done: number; freeGb: number | null; ns: string; cam: boolean; err?: string };
 type Rec = { state: 'idle' | 'countdown' | 'rec' | 'paused'; at: number; by: string; pausedAt?: number; pausedTotal: number };
-const SETS = [{ id: 'none', name: 'Off' }, { id: 'blur', name: 'Blur' }, { id: 'studio', name: 'Studio' }, { id: 'city', name: 'City' }, { id: 'library', name: 'Library' }] as const;
+const SETS = [{ id: 'none', name: 'Off' }, { id: 'blur', name: 'Blur' }, { id: 'blush', name: 'Blush' }, { id: 'gallery', name: 'Gallery' }, { id: 'rose', name: 'Rosé' }, { id: 'studio', name: 'Studio' }, { id: 'brick', name: 'Loft' }, { id: 'city', name: 'Night city' }] as const;
 const REACTIONS = ['😂', '🔥', '👏', '😮', '💀', '❤️'];
 
 export default function Page(props: { params: Promise<{ session: string }> }) {
@@ -40,11 +41,13 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const d = useDevices();
   const { identity, name } = useIdentity();
   const live = useLiveRoom(session, identity, name, d.stream);
-  const { store, people, emit, onEvent } = live;
+  const { store, people, emit, onEvent, companions } = live;
   useStore(store);
   const me = identity;
   const count = Math.max(1, people.length);
   const userId = `${name}-${identity}`;
+  // A phone companion (S14) uploads into this person's folder, so it needs to know the folder name.
+  useEffect(() => { if (live.status === 'live' || live.status === 'not-configured') store.set(`uid.${identity}`, userId); }, [userId, live.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- shared state ----
   const rec = store.get<Rec>('rec') ?? { state: 'idle', at: 0, by: '', pausedTotal: 0 };
@@ -61,6 +64,16 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const statuses = store.under<Status>('st.');
   const fixes = store.under<FixStep[]>('fix.');
   useEffect(() => { if (sp.get('title') && !store.get('title')) store.set('title', sp.get('title')); }, [sp, store]);
+
+  // Test mode: name the episode "test" and pretend players fill the empty seats, so one person can try 2–3 player
+  // games. "Play as" switches whose turn you're taking. Pretend players only exist in games, never on camera.
+  const testMode = title.trim().toLowerCase() === 'test';
+  const [actAs, setActAs] = useState<string | null>(null);
+  const gamePeople: Person[] = testMode
+    ? [...people, ...Array.from({ length: Math.max(0, 3 - people.length) }, (_, i) => ({ identity: `test-${i + 1}`, name: `Tester ${people.length + i + 1}`, isLocal: false, joinedAt: Number.MAX_SAFE_INTEGER }))]
+    : people;
+  const gameMe = testMode && actAs && gamePeople.some((p) => p.identity === actAs) ? actAs : me;
+  const gameCount = Math.max(1, gamePeople.length);
 
   // ---- local UI ----
   const [tab, setTab] = useState<Tab>(null);
@@ -104,35 +117,61 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
     if (e.type === 'face') setFaces((f) => ({ ...f, [e.from]: e.box as FaceBox | null }));
   }), [onEvent]);
 
+  // ---- shared set (S12): one wide room; each person renders their own slice of it, by seat, edge to edge ----
+  const seat = Math.max(0, people.findIndex((p) => p.identity === me));
+  const seats = Math.max(1, people.length);
+  const roomSet = isRoomSet(set);
+  const processor = useRef<{ kind: 'room' | 'blur'; p: StudioSetProcessor | import('@livekit/track-processors').BackgroundProcessorWrapper } | null>(null);
+  const [processed, setProcessed] = useState<MediaStreamTrack | undefined>();
+  const [setError, setSetError] = useState('');
+  const processedFor = useRef<unknown>(null);
+  // Without a live call (local testing), run the room set on the camera directly so you still see yourself in it.
+  const localSet = useRef<StudioSetProcessor | null>(null);
+  useEffect(() => {
+    if (live.cameraTrack()) return;
+    const raw = d.stream?.getVideoTracks()[0];
+    if (!raw || !roomSet) { if (localSet.current) { void localSet.current.destroy(); localSet.current = null; setProcessed(undefined); } return; }
+    const layout = { set, seat, seats };
+    if (localSet.current) { void localSet.current.update(layout); return; }
+    const p = new StudioSetProcessor(layout); localSet.current = p;
+    p.init({ kind: 'video' as never, track: raw }).then(() => setProcessed(p.processedTrack)).catch((e) => setSetError(`Set couldn’t start: ${(e as Error)?.message ?? e}`));
+  }, [set, seat, seats, d.stream, live.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { void localSet.current?.destroy(); }, []);
+  useEffect(() => {
+    const track = live.cameraTrack(); if (!track) return;
+    if (processedFor.current !== track) { processor.current = null; processedFor.current = track; } // camera changed: start fresh
+    let cancelled = false;
+    (async () => {
+      const cur = processor.current;
+      if (set === 'none') { if (cur) { await track.stopProcessor(); processor.current = null; } setProcessed(undefined); return; }
+      if (roomSet) {
+        if (!StudioSetProcessor.supported()) { setSetError('This browser can’t run the shared set — try Chrome.'); return; }
+        const layout = { set, seat, seats };
+        if (cur?.kind === 'room') await (cur.p as StudioSetProcessor).update(layout);
+        else { if (cur) await track.stopProcessor(); const p = new StudioSetProcessor(layout); processor.current = { kind: 'room', p }; await track.setProcessor(p); }
+      } else {
+        const tp = await import('@livekit/track-processors');
+        if (!tp.supportsBackgroundProcessors()) return;
+        const opts = { mode: 'background-blur' as const, blurRadius: 14 };
+        if (cur?.kind === 'blur') await (cur.p as import('@livekit/track-processors').BackgroundProcessorWrapper).switchTo(opts);
+        else { if (cur) await track.stopProcessor(); const p = tp.BackgroundProcessor(opts); processor.current = { kind: 'blur', p }; await track.setProcessor(p); }
+      }
+      if (!cancelled) { setSetError(''); setProcessed(processor.current?.p.processedTrack ?? track.mediaStreamTrack); }
+    })().catch((e) => { if (!cancelled) setSetError(`Set couldn’t start: ${(e as Error)?.message ?? e}`); });
+    return () => { cancelled = true; };
+  }, [set, seat, seats, live.room, live.people.length, d.stream]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ---- overlays: if someone put an overlay on me, track my face and share the box (AO2) ----
   const myOverlay = overlays[me];
   useEffect(() => {
     if (!myOverlay || !d.stream) return;
-    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.srcObject = new MediaStream(d.stream.getVideoTracks()); void v.play();
+    // Track the face in what people actually see (the set reframes you), so the sticker lands on your head.
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.srcObject = new MediaStream(processed ? [processed] : d.stream.getVideoTracks()); void v.play();
     let stop: (() => void) | undefined; let last = 0;
     trackFace(v, (box) => { setFaces((f) => ({ ...f, [me]: box })); if (Date.now() - last > 120) { last = Date.now(); emit({ type: 'face', box }, true); } })
       .then((s) => (stop = s)).catch(() => { /* no face tracking: sticker sits in a default spot */ });
     return () => { stop?.(); v.srcObject = null; };
-  }, [!!myOverlay, d.stream, me]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ---- shared set (S12): same set for everyone, each person gets their slice of the room by seat ----
-  const seat = Math.max(0, people.findIndex((p) => p.identity === me));
-  const processor = useRef<import('@livekit/track-processors').BackgroundProcessorWrapper | null>(null);
-  const [processed, setProcessed] = useState<MediaStreamTrack | undefined>();
-  const processedFor = useRef<unknown>(null);
-  useEffect(() => {
-    const track = live.cameraTrack(); if (!track) return;
-    if (processedFor.current !== track) { processor.current = null; processedFor.current = track; } // camera changed: start fresh
-    (async () => {
-      const tp = await import('@livekit/track-processors');
-      if (!tp.supportsBackgroundProcessors()) return;
-      if (set === 'none') { if (processor.current) { await track.stopProcessor(); processor.current = null; } setProcessed(undefined); return; }
-      const opts = set === 'blur' ? { mode: 'background-blur' as const, blurRadius: 12 } : { mode: 'virtual-background' as const, imagePath: `/sets/${set}-${seat % 3}.jpg` };
-      if (processor.current) await processor.current.switchTo(opts);
-      else { processor.current = tp.BackgroundProcessor(opts); await track.setProcessor(processor.current); }
-      setProcessed(processor.current?.processedTrack ?? track.mediaStreamTrack);
-    })().catch(() => {});
-  }, [set, seat, live.room, live.people.length, d.stream]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [!!myOverlay, d.stream, me, processed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- recording (R1–R6): every browser follows the shared `rec` state ----
   const recorder = useRef<LocalRecorder | null>(null);
@@ -145,9 +184,10 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
     const shown = people.find((p) => p.screen);
     const g = store.get<GameRef | null>('game');
     return {
-      tiles: people.map((p) => ({ el: els.current.get(p.identity) ?? null, mirrored: p.isLocal, overlay: overlays[p.identity], face: faces[p.identity] ?? undefined })),
+      tiles: people.map((p) => ({ el: els.current.get(p.identity) ?? null, mirrored: p.isLocal && !roomSet, overlay: overlays[p.identity], face: faces[p.identity] ?? undefined })),
+      seamless: roomSet,
       screen: shown && screenOnRec ? screenEl.current : null,
-      board: g && boardOn(g.id) ? caption(store, people) : null,
+      board: g && boardOn(g.id) ? caption(store, gamePeople) : null,
       caption: store.get<string | null>('debate') ?? null,
     };
   };
@@ -307,26 +347,27 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const runFix = async () => { setFix([{ label: 'Checking…', ok: true }]); setFix(await fixFor(symptom)); setChecks(await runChecks()); };
 
   const tile = (p: Person, style: React.CSSProperties) => (
-    <PersonTile key={p.identity} p={p} style={style} localTrack={p.isLocal ? (processed ?? d.stream?.getVideoTracks()[0]) : undefined}
+    <PersonTile key={p.identity} p={p} style={style} mirror={p.isLocal && !roomSet} localTrack={p.isLocal ? (processed ?? d.stream?.getVideoTracks()[0]) : undefined}
       hidden={hiddenIds.includes(p.identity)} mutedAudio={mutedIds.includes(p.identity)} sinkId={d.speakerId}
-      overlay={overlays[p.identity]} face={faces[p.identity] ?? undefined}
+      overlay={overlays[p.identity]} face={faces[p.identity] ?? undefined} pip={companions.find((c) => c.of === p.identity && c.video)?.video}
       register={(el) => { if (el) els.current.set(p.identity, el); else els.current.delete(p.identity); }} />
   );
 
   const Controls = (
-    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-      <div style={{ display: 'flex', gap: 8, flex: '1 1 0', position: 'relative' }}>
+    <div className="dock">
+      <div style={{ display: 'flex', gap: 8, flex: '1 1 0', position: 'relative', alignItems: 'center' }}>
         <button className="icon-btn danger" aria-pressed={muted} aria-label={muted ? 'Unmute' : 'Mute'} title={muted ? 'Unmute' : 'Mute'} onClick={() => setMuted(!muted)}><Icon name="mic" slash={muted} /></button>
         <button className="icon-btn danger" aria-pressed={!camOn} aria-label={camOn ? 'Turn camera off' : 'Turn camera on'} title="Camera" onClick={() => setCamOn(!camOn)}><Icon name="cam" slash={!camOn} /></button>
         <button className="icon-btn" aria-pressed={sharing} aria-label={sharing ? 'Stop sharing' : 'Share screen'} title={sharing ? 'Stop sharing' : 'Share screen'} onClick={toggleShare} disabled={live.status !== 'live'} style={{ background: sharing ? 'var(--accent)' : undefined, color: sharing ? 'var(--bg)' : undefined }}><Icon name="share" /></button>
         <button className="icon-btn" aria-label="React" title="React" onClick={() => setMenu(menu === 'react' ? null : 'react')}><Icon name="react" /></button>
-        <button className="btn" style={{ minHeight: 52 }} onClick={() => setMenu(menu === 'overlay' ? null : 'overlay')}><Icon name="overlay" />Overlay</button>
+        <button className="btn" style={{ minHeight: 48, borderRadius: 14 }} onClick={() => setMenu(menu === 'overlay' ? null : 'overlay')}><Icon name="overlay" />Overlay</button>
         {menu === 'react' && (
-          <div className="panel" style={{ position: 'absolute', bottom: 60, left: 0, padding: 8, display: 'flex', gap: 4, border: '1px solid var(--line)', zIndex: 6 }}>
-            {REACTIONS.map((r) => <button key={r} className="btn" style={{ fontSize: 24, minHeight: 48, padding: '0 10px', background: 'transparent' }} onClick={() => { emit({ type: 'react', emoji: r }); setMenu(null); }}>{r}</button>)}
+          <div className="popover" style={{ left: 0, padding: 8, display: 'flex', gap: 4 }}>
+            {REACTIONS.map((r) => <button key={r} className="btn" style={{ fontSize: 26, minHeight: 50, padding: '0 10px', background: 'transparent' }} onClick={() => { emit({ type: 'react', emoji: r }); setMenu(null); }}>{r}</button>)}
           </div>)}
         {menu === 'overlay' && (
-          <form onSubmit={addOverlay} className="panel" style={{ position: 'absolute', bottom: 60, left: 0, width: 380, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid var(--line)', zIndex: 6 }}>
+          <form onSubmit={addOverlay} className="popover" style={{ left: 0, width: 380, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <span className="section-title">Overlay</span>
             <input className="input" autoFocus placeholder={`e.g. Add a crown to ${people.find((p) => !p.isLocal) ? `${people.find((p) => !p.isLocal)!.name}’s` : 'my'} head`} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
             <button className="btn btn-primary">Add overlay</button>
             {Object.entries(overlays).map(([id, o]) => (
@@ -337,32 +378,32 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
           </form>)}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
-        {rec.state === 'idle' && <button className="btn btn-rec" style={{ minHeight: 48, padding: '0 22px' }} onClick={startRecording} disabled={!d.stream}>● Record</button>}
-        {rec.state === 'countdown' && <span style={{ fontWeight: 600 }}>Starting…</span>}
+        {rec.state === 'idle' && <button className="btn btn-rec" style={{ minHeight: 48, padding: '0 26px', fontSize: 16 }} onClick={startRecording} disabled={!d.stream}><span className="dot" style={{ background: 'var(--bg)' }} />Record</button>}
+        {rec.state === 'countdown' && <span style={{ fontWeight: 600, padding: '0 16px' }}>Starting…</span>}
         {(rec.state === 'rec' || rec.state === 'paused') && (<>
-          <span style={{ fontFamily: 'var(--font-head)', fontSize: 18, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: rec.state === 'rec' ? 'var(--rec)' : 'var(--muted)' }}>● {fmt(elapsed)}</span>
+          <span style={{ fontFamily: 'var(--font-head)', fontSize: 20, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: rec.state === 'rec' ? 'var(--rec)' : 'var(--muted)', padding: '0 6px', display: 'inline-flex', alignItems: 'center', gap: 8 }}><span className={rec.state === 'rec' ? 'dot dot-live' : 'dot'} />{fmt(elapsed)}</span>
           <button className="btn" title="Drop a marker (M)" onClick={addMarker}>Mark{markers.length ? ` · ${markers.length}` : ''}</button>
           <button className="btn" style={{ borderRadius: 999 }} onClick={rec.state === 'paused' ? resume : pause}>{rec.state === 'paused' ? 'Resume' : 'Pause'}</button>
           <button className="btn btn-rec" onClick={() => setConfirmStop(true)}>Stop</button>
         </>)}
         {confirmStop && (
-          <div role="alertdialog" aria-label="Stop recording for everyone?" className="panel" style={{ position: 'absolute', bottom: 60, left: '50%', transform: 'translateX(-50%)', width: 300, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid var(--line)', zIndex: 5 }}>
+          <div role="alertdialog" aria-label="Stop recording for everyone?" className="popover" style={{ left: '50%', transform: 'translateX(-50%)', width: 300, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <strong>Stop recording for everyone?</strong>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-rec" style={{ flex: 1, borderRadius: 8 }} onClick={stop}>Stop</button>
+              <button className="btn btn-rec" style={{ flex: 1, borderRadius: 10 }} onClick={stop}>Stop</button>
               <button className="btn" style={{ flex: 1 }} onClick={() => setConfirmStop(false)}>Keep recording</button>
             </div>
           </div>)}
       </div>
       <div style={{ display: 'flex', flex: '1 1 0', justifyContent: 'flex-end' }}>
         <div style={{ position: 'relative' }}>
-          <button className="btn" style={{ minHeight: 52 }} onClick={leave}><Icon name="leave" />Leave</button>
+          <button className="btn btn-ghost" style={{ minHeight: 48 }} onClick={leave}><Icon name="leave" />Leave</button>
           {confirmLeave && (
-            <div role="alertdialog" aria-label="Leave the studio?" className="panel" style={{ position: 'absolute', bottom: 60, right: 0, width: 300, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, border: '1px solid var(--line)', zIndex: 5 }}>
+            <div role="alertdialog" aria-label="Leave the studio?" className="popover" style={{ right: 0, width: 300, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <strong>{recording ? 'Leave while recording?' : 'Leave before uploads finish?'}</strong>
               <span className="muted" style={{ fontSize: 13 }}>{recording ? 'Your recording stops here; everyone else keeps recording. ' : ''}Anything not uploaded yet finishes next time you open the studio on this computer.</span>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-rec" style={{ flex: 1, borderRadius: 8 }} onClick={leave}>Leave</button>
+                <button className="btn btn-rec" style={{ flex: 1, borderRadius: 10 }} onClick={leave}>Leave</button>
                 <button className="btn" style={{ flex: 1 }} onClick={() => setConfirmLeave(false)}>Stay</button>
               </div>
             </div>)}
@@ -374,53 +415,66 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
   const countdownLeft = rec.state === 'countdown' ? Math.max(1, Math.ceil((rec.at - now) / 1000)) : 0;
   const strip = people.filter((p) => !(screenPerson && p.identity === screenPerson.identity && false));
 
+  const hue = (id: string) => { let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <header style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: '12px 24px' }}>
-        <span style={{ fontFamily: 'var(--font-head)', fontWeight: 600, fontSize: 16 }}>{title}</span>
-        {(rec.state === 'rec' || rec.state === 'paused') && <span className="muted" style={{ fontSize: 13 }}>{rec.state === 'paused' ? 'Paused' : 'Recording'}{upl.pending > 6 ? ` · uploading ${upl.pending}` : ''}</span>}
-        {rec.state === 'idle' && upl.pending > 0 && <span style={{ fontSize: 13, color: 'var(--warn)' }}>Uploading ({upl.pending} left) — keep this tab open</span>}
-        {recError && <span style={{ fontSize: 13, color: 'var(--rec)' }}>{recError}</span>}
-        {full && <span style={{ fontSize: 13, color: 'var(--warn)' }}>Storage full — still recording on this computer. Delete old episodes in the Library to upload.</span>}
-        {live.status === 'connecting' && <span className="muted" style={{ fontSize: 13 }}>Connecting…</span>}
+    <div className="studio">
+      <header className="studio-top">
+        <Link href="/" className="brand" aria-label="Home"><span className="brand-mark">3</span></Link>
+        <TitleField value={title} onChange={(t) => store.set('title', t)} />
+        {recording && <span className="chip chip-rec"><span className={rec.state === 'rec' ? 'dot dot-live' : 'dot'} />{rec.state === 'paused' ? 'Paused' : 'Recording'}{upl.pending > 6 ? ` · uploading ${upl.pending}` : ''}</span>}
+        {testMode && <span className="chip chip-test" title="Episode is named “test”: pretend players fill empty seats in games">Test mode</span>}
+        {rec.state === 'idle' && upl.pending > 0 && <span className="chip chip-warn">Uploading {upl.pending} — keep this tab open</span>}
+        {recError && <span className="chip chip-warn" style={{ color: 'var(--rec)' }}>{recError}</span>}
+        {setError && <span className="chip chip-warn">{setError}</span>}
+        {full && <span className="chip chip-warn">Storage full — still recording here. Delete old episodes in the Library.</span>}
+        {live.status === 'connecting' && <span className="chip">Connecting…</span>}
         <span style={{ flex: 1 }} />
-        <nav aria-label="Studio panels" style={{ display: 'flex', gap: 6, padding: 4, borderRadius: 14, background: 'var(--panel)' }}>
+        <div className="avatars" title={people.map((p) => p.name).join(', ')}>
+          {people.map((p) => <span key={p.identity} className="avatar" style={{ background: `hsl(${hue(p.identity)} 70% 68%)` }}>{(p.name || '?')[0].toUpperCase()}</span>)}
+        </div>
+        <nav aria-label="Studio panels" className="seg">
           {(['games', 'topics', 'setup'] as const).map((t) => (
-            <button key={t} className="btn" aria-pressed={tab === t} onClick={() => setTab(tab === t ? null : t)}
-              style={{ fontWeight: 600, background: tab === t ? 'var(--accent)' : 'var(--panel-2)', color: tab === t ? 'var(--bg)' : 'var(--text)' }}>
-              <Icon name={t} size={20} />{t[0].toUpperCase() + t.slice(1)}
+            <button key={t} className="btn" aria-pressed={tab === t} onClick={() => setTab(tab === t ? null : t)}>
+              <Icon name={t} size={18} />{t[0].toUpperCase() + t.slice(1)}
             </button>))}
         </nav>
       </header>
 
-      <div style={{ flex: 1, display: 'flex', gap: 16, padding: '0 24px 16px', minHeight: 0 }}>
-        <main style={{ flex: '1 1 0', minWidth: 0, display: fullView ? 'none' : 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ position: 'relative', aspectRatio: showGame || screenPerson ? undefined : '16 / 8', minHeight: showGame || screenPerson ? 480 : undefined, borderRadius: 16, overflow: 'hidden', background: showGame || screenPerson ? 'var(--bg)' : '#2B2F3A' }}>
+      <div style={{ flex: 1, display: 'flex', gap: 16, padding: '4px 24px 20px', minHeight: 0 }}>
+        <main style={{ flex: '1 1 0', minWidth: 0, display: fullView ? 'none' : 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="stage" style={{ aspectRatio: showGame || screenPerson ? undefined : '2 / 1', minHeight: showGame || screenPerson ? 520 : undefined, background: showGame || screenPerson ? 'transparent' : undefined, border: showGame || screenPerson ? 0 : undefined, boxShadow: showGame || screenPerson ? 'none' : undefined }}>
             {showGame || screenPerson ? (
-              <div style={{ display: 'flex', gap: 12, height: '100%', minHeight: 480 }}>
-                <div className="panel" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: screenPerson && !showGame ? 0 : 24, overflow: 'auto', position: 'relative' }}>
+              <div style={{ display: 'flex', gap: 12, height: '100%', minHeight: 520 }}>
+                <div className="side" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: screenPerson && !showGame ? 0 : 28, overflow: 'auto', position: 'relative' }}>
                   {screenPerson && !showGame && <ScreenView track={screenPerson.screen!} register={(el) => (screenEl.current = el)} />}
-                  {showGame && <GameBoard store={store} me={me} people={people} isHost />}
+                  {showGame && testMode && (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', padding: '6px 10px', borderRadius: 10, border: '1px dashed var(--warn)', fontSize: 13, marginBottom: 12 }}>
+                      <span style={{ color: 'var(--warn)', fontWeight: 600 }}>Test mode · Play as</span>
+                      {gamePeople.map((p) => <button key={p.identity} className="btn" aria-pressed={gameMe === p.identity} onClick={() => setActAs(p.identity)}
+                        style={{ minHeight: 28, fontSize: 13, background: gameMe === p.identity ? 'var(--warn)' : undefined, color: gameMe === p.identity ? 'var(--bg)' : undefined }}>{p.isLocal ? 'Me' : p.name}</button>)}
+                    </div>)}
+                  {showGame && <GameBoard store={store} me={gameMe} people={gamePeople.map((p) => ({ ...p, isLocal: p.identity === gameMe }))} isHost />}
                   {screenPerson && showGame && <div style={{ display: 'none' }}><ScreenView track={screenPerson.screen!} register={(el) => (screenEl.current = el)} /></div>}
                   {screenPerson && (
-                    <label className="muted" style={{ position: 'absolute', top: 10, right: 12, fontSize: 12, display: 'flex', gap: 6, alignItems: 'center', background: 'rgba(14,15,18,.7)', padding: '4px 8px', borderRadius: 8 }}>
+                    <label className="chip" style={{ position: 'absolute', top: 10, right: 12, fontSize: 12, gap: 6 }}>
                       <input type="checkbox" checked={screenOnRec} onChange={(e) => store.set('screenRec', e.target.checked)} />Show screen in recording
                     </label>)}
                 </div>
-                <div style={{ width: '18%', minWidth: 140, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {strip.map((p) => tile(p, { flex: 1, minHeight: 0, borderRadius: 10 }))}
+                <div style={{ width: '17%', minWidth: 140, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {strip.map((p) => tile(p, { flex: 1, minHeight: 0, borderRadius: 14 }))}
                 </div>
               </div>
             ) : (
-              <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}>
+              <div className={`stage-grid${roomSet ? '' : ' gapped'}`} style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}>
                 {people.map((p) => tile(p, { width: '100%', height: '100%' }))}
               </div>
             )}
-            {countdownLeft > 0 && <div style={{ position: 'absolute', inset: 0, background: 'rgba(14,15,18,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-head)', fontSize: 120, fontWeight: 700 }}>{countdownLeft}</div>}
+            {countdownLeft > 0 && <div style={{ position: 'absolute', inset: 0, background: 'rgba(14,15,18,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-head)', fontSize: 140, fontWeight: 700 }}>{countdownLeft}</div>}
             {debate && (
-              <div style={{ position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)', maxWidth: '86%', padding: '8px 18px', borderRadius: 14, background: 'rgba(14,15,18,.86)', textAlign: 'center' }}>
+              <div style={{ position: 'absolute', left: '50%', bottom: 16, transform: 'translateX(-50%)', maxWidth: '86%', padding: '10px 20px', borderRadius: 16, background: 'rgba(14,15,18,.86)', backdropFilter: 'blur(8px)', textAlign: 'center', border: '1px solid var(--line)' }}>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--accent-text)' }}>TONIGHT’S DEBATE</div>
-                <div style={{ fontWeight: 600 }}>{debate}</div>
+                <div style={{ fontWeight: 600, fontSize: 17 }}>{debate}</div>
                 <button className="btn" aria-label="Hide debate caption" style={{ position: 'absolute', top: 4, right: 4, minHeight: 22, padding: 2, background: 'transparent' }} onClick={() => store.set('debate', null)}><Icon name="close" size={12} /></button>
               </div>)}
             {floaters.map((f) => <span key={f.id} className="floater" style={{ left: `${f.x}%` }}>{f.emoji}</span>)}
@@ -429,40 +483,36 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
         </main>
 
         {tab && (
-          <aside className="panel" aria-label={tab} style={{ flex: fullView ? '1 1 0' : '0 0 360px', padding: fullView ? 24 : 16, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', maxHeight: fullView ? 'none' : 'calc(100vh - 90px)' }}>
+          <aside className="side" aria-label={tab} style={{ flex: fullView ? '1 1 0' : '0 0 380px', padding: fullView ? 28 : 20, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', maxHeight: fullView ? 'none' : 'calc(100vh - 96px)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: 18 }}>{tab[0].toUpperCase() + tab.slice(1)}</h2>
+              <h2 style={{ fontSize: 22 }}>{tab[0].toUpperCase() + tab.slice(1)}</h2>
               <button className="btn" aria-label="Close panel" style={{ background: 'transparent', minHeight: 32 }} onClick={() => setTab(null)}><Icon name="close" size={16} /></button>
             </div>
 
             {tab === 'games' && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
+              <><Scoreboard store={store} people={gamePeople} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
                 {GAMES.map((g) => {
-                  const ok = isPlayable(g, count); const on = boardOn(g.id);
+                  const ok = isPlayable(g, gameCount); const on = boardOn(g.id);
                   return (
-                    <div key={g.id} style={{ padding: 12, borderRadius: 10, background: ok ? 'var(--panel-2)' : 'transparent', border: ok ? 'none' : '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div key={g.id} className={`game-card${ok ? '' : ' off'}`}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ flex: 1, fontWeight: 600, color: ok ? 'var(--text)' : '#8A8D96' }}>{g.name}</span>
-                        {ok && <button className="btn btn-primary" style={{ minHeight: 32 }} onClick={() => { startGame(store, g.id, people); setTab(null); }}>{game?.id === g.id ? 'Restart' : 'Play'}</button>}
+                        <span style={{ flex: 1, fontWeight: 600, fontSize: 16, fontFamily: 'var(--font-head)', color: ok ? 'var(--text)' : '#8A8D96' }}>{g.name}</span>
+                        {ok ? <>
+                          <button className="btn btn-ghost" title={on ? 'Recording shows the game board — click for faces only' : 'Recording shows faces only — click to show the board'} aria-label="What the recording shows"
+                            style={{ minHeight: 30, padding: '0 8px', fontSize: 12 }} onClick={() => store.set(`board.${g.id}`, !on)}>{on ? '▣ Board' : '☺ Faces'}</button>
+                          <button className="btn btn-primary" style={{ minHeight: 32 }} onClick={() => { startGame(store, g.id, gamePeople); setTab(null); }}>{game?.id === g.id ? 'Restart' : 'Play'}</button>
+                        </> : <span className="pill">{g.min}+ players</span>}
                       </div>
-                      <span className="muted" style={{ fontSize: 13 }}>{ok ? g.line : `Needs ${g.min} players`}</span>
-                      {ok && (
-                        <div role="radiogroup" aria-label={`${g.name}: what the recording shows`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                          <span className="muted">Recording shows</span>
-                          {([true, false] as const).map((v) => (
-                            <button key={String(v)} role="radio" aria-checked={on === v} className="btn" onClick={() => store.set(`board.${g.id}`, v)}
-                              style={{ minHeight: 26, padding: '0 10px', fontSize: 12, background: on === v ? 'var(--text)' : 'transparent', color: on === v ? 'var(--bg)' : 'var(--muted)', border: '1px solid var(--line)' }}>
-                              {v ? 'Game + faces' : 'Faces only'}
-                            </button>))}
-                        </div>)}
+                      {ok && <span className="muted" style={{ fontSize: 13 }}>{g.line}</span>}
                     </div>);
                 })}
-              </div>)}
+              </div></>)}
 
             {tab === 'topics' && <Topics store={store} me={me} onAdd={(t) => setPlan([...plan, { id: `t${Date.now()}`, title: t, done: false }])} onShow={(t) => { store.set('debate', t); logEvent('debate', t); setTab(null); }} />}
 
             {tab === 'setup' && (<>
-              <h3 style={{ fontSize: 16 }}>People</h3>
+              <h3 className="section-title">People</h3>
               <span className="muted" style={{ fontSize: 13 }}>{count} {count === 1 ? 'person' : 'people'} in the room{live.status === 'not-configured' ? ' · calls aren’t set up yet' : ''}</span>
               {people.map((p) => { const st = statuses[p.identity]; const warn = st && (st.err || (st.freeGb !== null && st.freeGb < 5) || st.up > 10 || p.quality === 'poor' || p.quality === 'lost'); return (
                 <div key={p.identity} style={{ padding: 8, borderRadius: 10, background: 'var(--panel-2)', display: 'flex', flexDirection: 'column', gap: 2, fontSize: 13 }}>
@@ -479,7 +529,7 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
                 <button className="btn btn-primary" disabled={!invite} onClick={() => navigator.clipboard.writeText(invite)}>Copy</button>
               </div>
 
-              <h3 style={{ fontSize: 16, borderTop: '1px solid var(--line)', paddingTop: 16 }}>Plan</h3>
+              <h3 className="section-title" style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginTop: 6 }}>Plan</h3>
               {agenda && <div className="muted" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ flex: 1 }}>Agenda from {new Date(agenda.receivedAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · {agenda.items.length} items</span>
                 <button className="btn" style={{ minHeight: 28, fontSize: 12 }} onClick={applyAgenda}>Use it</button>
@@ -498,7 +548,7 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
               </ol>
               <button className="btn" style={{ alignSelf: 'flex-start', background: 'transparent', color: 'var(--accent-text)' }} onClick={() => setPlan([...plan, { id: `n${Date.now()}`, title: 'New item', done: false }])}>Add item</button>
 
-              <h3 style={{ fontSize: 16, borderTop: '1px solid var(--line)', paddingTop: 16 }}>Sound effects</h3>
+              <h3 className="section-title" style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginTop: 6 }}>Sound effects</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
                 {SOUNDS.map((snd, i) => (
                   <button key={snd.id} className="btn" style={{ minHeight: 64, flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between', padding: 8 }} onClick={() => playSfx(i)}>
@@ -514,17 +564,17 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
               </div>
               <span className="muted" style={{ fontSize: 12 }}>Keys 1–9 play them for everyone and into the recording. M drops a marker.</span>
 
-              <h3 style={{ fontSize: 16, borderTop: '1px solid var(--line)', paddingTop: 16 }}>Set</h3>
-              <span className="muted" style={{ fontSize: 13 }}>{recording ? 'Locked while recording.' : 'Everyone gets the same room, each from their own spot in it.'}</span>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+              <h3 className="section-title" style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginTop: 6 }}>Set</h3>
+              <span className="muted" style={{ fontSize: 13 }}>{recording ? 'Locked while recording.' : 'One room for everyone: each seat shows its own part of it, side by side, with a desk in front.'}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
                 {SETS.map((s) => (
-                  <button key={s.id} className="btn" aria-pressed={set === s.id} disabled={(live.status !== 'live' && s.id !== 'none') || recording} onClick={() => store.set('set', s.id)}
-                    style={{ minHeight: 56, flexDirection: 'column', gap: 4, padding: 6, outline: set === s.id ? '2px solid var(--accent)' : 'none', backgroundImage: ['studio', 'city', 'library'].includes(s.id) ? `url(/sets/${s.id}-preview.jpg)` : undefined, backgroundSize: 'cover', textShadow: '0 1px 3px #000' }}>
+                  <button key={s.id} className="set-tile" aria-pressed={set === s.id} disabled={(live.status !== 'live' && s.id === 'blur') || recording} onClick={() => store.set('set', s.id)}
+                    style={{ backgroundImage: isRoomSet(s.id) ? `linear-gradient(transparent 40%, rgba(0,0,0,.55)), url(/sets/${s.id}-preview.jpg)` : undefined, backgroundColor: isRoomSet(s.id) ? undefined : 'var(--panel-2)', minHeight: isRoomSet(s.id) ? 76 : 48 }}>
                     {s.name}
                   </button>))}
               </div>
 
-              <h3 style={{ fontSize: 16, borderTop: '1px solid var(--line)', paddingTop: 16 }}>Your audio and video</h3>
+              <h3 className="section-title" style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginTop: 6 }}>Your audio and video</h3>
               {recording && <span className="muted" style={{ fontSize: 12 }}>Devices are locked while recording so nothing interrupts it.</span>}
               <MicMeter stream={d.stream} />
               <label className="field">Noise cancellation
@@ -568,7 +618,7 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
           </aside>
         )}
       </div>
-      {fullView && <div style={{ padding: '0 24px 16px' }}>{Controls}</div>}
+      {fullView && <div style={{ padding: '0 24px 20px' }}>{Controls}</div>}
     </div>
   );
 }
@@ -581,8 +631,8 @@ function PlanTitle({ value, done, now, onChange }: { value: string; done: boolea
 }
 
 /** One person's tile: video (mirrored for yourself), their audio, and any overlay. No name tag (U1). */
-function PersonTile({ p, style, localTrack, hidden, mutedAudio, sinkId, overlay, face, register }: {
-  p: Person; style: React.CSSProperties; localTrack?: MediaStreamTrack; hidden: boolean; mutedAudio: boolean; sinkId: string;
+function PersonTile({ p, style, mirror, localTrack, hidden, mutedAudio, sinkId, overlay, face, register, pip }: {
+  p: Person; mirror: boolean; pip?: MediaStreamTrack; style: React.CSSProperties; localTrack?: MediaStreamTrack; hidden: boolean; mutedAudio: boolean; sinkId: string;
   overlay?: Overlay; face?: FaceBox; register: (el: HTMLVideoElement | null) => void;
 }) {
   const v = useRef<HTMLVideoElement | null>(null); const a = useRef<HTMLAudioElement>(null);
@@ -602,15 +652,16 @@ function PersonTile({ p, style, localTrack, hidden, mutedAudio, sinkId, overlay,
   let sticker: React.ReactNode = null;
   if (overlay && box.vw && !hidden) {
     const s = Math.max(box.w / box.vw, box.h / box.vh); const pw = box.vw * s, ph = box.vh * s;
-    const pos = place(overlay, face, pw, ph, p.isLocal);
+    const pos = place(overlay, face, pw, ph, mirror);
     sticker = <span aria-hidden style={{ position: 'absolute', left: (box.w - pw) / 2 + pos.x, top: (box.h - ph) / 2 + pos.y, fontSize: pos.size, lineHeight: 1, transform: 'translate(-50%, -50%)', pointerEvents: 'none', transition: 'left .12s linear, top .12s linear' }}>{overlay.emoji}</span>;
   }
   return (
-    <div style={{ position: 'relative', overflow: 'hidden', background: '#2B2F3A', ...style }}>
-      <video ref={ref} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', transform: p.isLocal ? 'scaleX(-1)' : undefined, visibility: hidden ? 'hidden' : 'visible' }} />
+    <div className="tile" style={style}>
+      <video ref={ref} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transform: mirror ? 'scaleX(-1)' : undefined, visibility: hidden ? 'hidden' : 'visible' }} />
       {hidden && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="muted">Hidden until the reveal</div>}
       {!hidden && (!track || track.readyState === 'ended' || !track.enabled) && <div aria-hidden style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}><Icon name="cam" slash size={36} /></div>}
       {sticker}
+      {pip && !hidden && <PipVideo track={pip} />}
       {!p.isLocal && <audio ref={a} autoPlay />}
     </div>
   );
@@ -665,4 +716,18 @@ function MicMeter({ stream }: { stream: MediaStream | null }) {
     loop(); return () => { cancelAnimationFrame(raf); void ctx.close(); };
   }, [stream]);
   return (<div><span className="muted" style={{ fontSize: 12 }}>Mic level</span><div style={{ height: 6, borderRadius: 3, background: 'var(--panel-2)', marginTop: 4 }}><div ref={bar} style={{ height: 6, borderRadius: 3, width: 0, transition: 'width .08s linear' }} /></div></div>);
+}
+
+/** Episode title, editable in place. Naming it "test" turns on test mode. */
+function TitleField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [v, setV] = useState(value);
+  useEffect(() => setV(value), [value]);
+  const commit = () => { const t = v.trim(); if (t && t !== value) onChange(t); else setV(value); };
+  return <input className="studio-title" aria-label="Episode title" value={v} size={Math.max(8, v.length + 1)} onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setV(value); (e.target as HTMLInputElement).blur(); } }} />;
+}
+
+/** A phone companion's live angle, tucked into the corner of its person's tile. */
+function PipVideo({ track }: { track: MediaStreamTrack }) {
+  const ref = useCallback((el: HTMLVideoElement | null) => { if (el) el.srcObject = new MediaStream([track]); }, [track]);
+  return <video ref={ref} autoPlay muted playsInline title="Phone camera" style={{ position: 'absolute', right: 10, bottom: 10, width: '30%', aspectRatio: '9 / 16', maxHeight: '45%', objectFit: 'cover', borderRadius: 12, border: '2px solid rgba(255,255,255,.7)', boxShadow: '0 8px 24px rgba(0,0,0,.5)', background: '#000' }} />;
 }

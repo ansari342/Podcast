@@ -8,6 +8,9 @@ export type Person = {
   video?: MediaStreamTrack; audio?: MediaStreamTrack; screen?: MediaStreamTrack; quality?: string;
 };
 export type LiveEvent = { type: string; from: string; [k: string]: unknown };
+/** A phone joined as someone's second camera (S14). Never takes a seat. */
+export type Companion = { identity: string; of: string; video?: MediaStreamTrack };
+export const COMPANION_PREFIX = 'cmp_';
 
 const enc = new TextEncoder(); const dec = new TextDecoder();
 
@@ -32,6 +35,7 @@ export function useLiveRoom(session: string, identity: string, name: string, str
   const store = useMemo(() => new SharedStore(identity), [identity]);
   const [room, setRoom] = useState<Room | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
+  const [companions, setCompanions] = useState<Companion[]>([]);
   const [status, setStatus] = useState<'offline' | 'connecting' | 'live' | 'not-configured'>('offline');
   const listeners = useRef(new Set<(e: LiveEvent) => void>());
   const roomRef = useRef<Room | null>(null);
@@ -51,7 +55,7 @@ export function useLiveRoom(session: string, identity: string, name: string, str
       if (!wss || cancelled) { setStatus('not-configured'); return; }
       r = new Room({ adaptiveStream: true, dynacast: true, publishDefaults: { videoSimulcastLayers: undefined } });
       roomRef.current = r;
-      const sync = () => setPeople(listPeople(r!));
+      const sync = () => { setPeople(listPeople(r!)); setCompanions(listCompanions(r!)); };
       r.on(RoomEvent.ParticipantConnected, (p: RemoteParticipant) => {
         sync();
         for (const b of batches(store.dump())) void r!.localParticipant.publishData(enc.encode(JSON.stringify({ t: 's', e: b })), { reliable: true, destinationIdentities: [p.identity] });
@@ -134,7 +138,7 @@ export function useLiveRoom(session: string, identity: string, name: string, str
   const self: Person = { identity, name, isLocal: true, joinedAt: joined.current, video: stream?.getVideoTracks()[0], audio: stream?.getAudioTracks()[0] };
   const all = room ? people : [self, ...tabs].sort((a, b) => a.joinedAt - b.joinedAt || a.identity.localeCompare(b.identity)).slice(0, 3);
   const startAudio = async () => { await roomRef.current?.startAudio(); };
-  return { room, people: all, status, store, emit, onEvent, setScreenShare, cameraTrack, startAudio };
+  return { room, people: all, companions, status, store, emit, onEvent, setScreenShare, cameraTrack, startAudio };
 }
 
 function toPerson(p: Participant, isLocal: boolean): Person {
@@ -145,6 +149,11 @@ function toPerson(p: Participant, isLocal: boolean): Person {
 
 /** Seats are automatic (no seat picker): ordered by who joined first. Max three people. */
 function listPeople(r: Room): Person[] {
-  const list = [toPerson(r.localParticipant, true), ...[...r.remoteParticipants.values()].map((p) => toPerson(p, false))];
+  const list = [toPerson(r.localParticipant, true), ...[...r.remoteParticipants.values()].filter((p) => !p.identity.startsWith(COMPANION_PREFIX)).map((p) => toPerson(p, false))];
   return list.sort((a, b) => a.joinedAt - b.joinedAt || a.identity.localeCompare(b.identity)).slice(0, 3);
+}
+
+function listCompanions(r: Room): Companion[] {
+  return [...r.remoteParticipants.values()].filter((p) => p.identity.startsWith(COMPANION_PREFIX))
+    .map((p) => ({ identity: p.identity, of: p.identity.slice(COMPANION_PREFIX.length).split('__')[0], video: p.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack }));
 }

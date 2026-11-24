@@ -5,8 +5,8 @@ import { COOKIE, ROOM_COOKIE, authEnabled, readCookie, readRoomCookie, roomKey }
  * Access (A1): the passcode protects the home page and Library. An invite link (/green-room/<room>?k=<signature>)
  * is enough on its own for that one room — guests never see the passcode. Room APIs re-check the room themselves.
  */
-const ROOM_PAGE = /^\/(green-room|studio)\/([a-zA-Z0-9_-]+)/;
-const ROOM_API = /^\/api\/(livekit-token|upload-url|session|topics|invite|sfx|agenda)/;
+const ROOM_PAGE = /^\/(green-room|studio|companion)\/([a-zA-Z0-9_-]+)/;
+const ROOM_API = /^\/api\/(livekit-token|upload-url|session|topics|invite|sfx|agenda|image|companion)/;
 
 export async function middleware(req: NextRequest) {
   if (!authEnabled()) return NextResponse.next();

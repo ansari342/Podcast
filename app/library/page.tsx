@@ -7,7 +7,7 @@ type Track = { person: string; track: string; chunks: number; bytes: number; ext
 type Mark = { t: number; by: string; type?: string; label?: string };
 type Session = { id: string; last: number; meta: { title?: string; startedAt?: number; durationMs?: number; people?: Record<string, string>; markers?: Mark[]; events?: Mark[] } | null; tracks: Track[] };
 
-const LABEL: Record<string, string> = { active: 'Episode video', camera_raw: 'Camera', mic_raw: 'Mic (raw)', mic_clean: 'Mic (cleaned)', screen: 'Shared screen' };
+const LABEL: Record<string, string> = { active: 'Episode video', camera_raw: 'Camera', mic_raw: 'Mic (raw)', mic_clean: 'Mic (cleaned)', screen: 'Shared screen', phone: 'Phone camera' };
 const tc = (ms: number) => { const s = Math.max(0, ms / 1000); const p = (n: number) => String(Math.floor(n)).padStart(2, '0'); return `${p(s / 3600)}:${p((s / 60) % 60)}:${p(s % 60)}.${String(Math.floor(ms % 1000)).padStart(3, '0')}`; };
 function saveText(name: string, text: string, type: string) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 30_000); }
 /** L3: markers and game/sound/debate events as CSV (timecode from the start of the recording) and JSON. */
@@ -59,7 +59,7 @@ export default function Library() {
         {!data && !err && <p className="muted">Loading…</p>}
         {data?.length === 0 && <p className="muted">No recordings yet.</p>}
         {data?.map((s) => {
-          const order = (t: Track) => ['active', 'camera_raw', 'mic_clean', 'mic_raw', 'screen'].indexOf(t.track);
+          const order = (t: Track) => ['active', 'camera_raw', 'phone', 'mic_clean', 'mic_raw', 'screen'].indexOf(t.track);
           const tracks = [...s.tracks].sort((a, b) => order(a) - order(b) || a.person.localeCompare(b.person));
           return (
             <section key={s.id} className="panel" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>

@@ -15,22 +15,68 @@ export const IMPOSTER: Record<string, string[]> = {
 };
 
 /** [everyone's question, imposter's question] — answers should overlap enough to bluff. */
+/**
+ * Imposter question pairs: [real question, imposter's question]. Both take the same kind of answer, so the imposter's
+ * answer can pass for one to the real question — the fun is when it almost does. Mixed types, few numbers.
+ */
 export const IMPOSTER_QUESTIONS: [string, string][] = [
-  ['How many times do you eat in a day?', 'How many coffees could you drink in a day?'],
+  // people
+  ['Who in this room would survive longest in a zombie apocalypse?', 'Who in this room would be the worst roommate?'],
+  ['Which celebrity would you want as your dad?', 'Which celebrity would you want to fight?'],
+  ['Who’s the funniest person you know personally?', 'Who would you call to help you hide a body?'],
+  ['Which celebrity do you think smells the best?', 'Which celebrity would be the worst at a group project?'],
+  ['Who’s the GOAT of any sport?', 'Which athlete would you trust to babysit?'],
+  ['Which famous person would you want to get stuck in an elevator with?', 'Which famous person do you think is secretly really mean?'],
+  ['Who in this room would make the best president?', 'Who in this room would go viral for the wrong reason?'],
+  ['Which cartoon character would you date?', 'Which cartoon character would you trust with your bank account?'],
+  ['Who’s the most overrated musician right now?', 'Which musician would you want playing at your funeral?'],
+  ['Which historical figure would you want to have dinner with?', 'Which historical figure would be terrible on social media?'],
+  // places
+  ['Where would you go on a honeymoon?', 'Where would you hide if you robbed a bank?'],
+  ['What’s the most overrated vacation spot?', 'Where would you never want to live?'],
+  ['Where’s the best place to propose?', 'Where’s the worst place to get dumped?'],
+  ['If you could live anywhere for a year, where?', 'Where would you send your worst enemy?'],
+  ['What’s the best place for a first date?', 'Where would you go to cry in public?'],
+  // food & drink
+  ['What’s your go-to late-night snack?', 'What food would you bring to a funeral?'],
+  ['What’s the most overrated food?', 'What food would you eat for your last meal?'],
+  ['What’s the best pizza topping?', 'What would you put on a burger to ruin it?'],
+  ['What’s the worst thing to order on a first date?', 'What’s the best hangover food?'],
+  ['What food could you eat every day for a month?', 'What food would you ban from the planet?'],
+  ['What’s the best fast-food chain?', 'Where would you take a date to save money?'],
+  ['What drink do you order to look cool?', 'What drink do you secretly love but are embarrassed by?'],
+  // things & habits
+  ['What’s the first thing you’d buy if you won the lottery?', 'What’s something you’d buy to impress someone?'],
+  ['What’s the most useless thing in your house?', 'What would you grab first in a fire?'],
+  ['What’s the most annoying thing a coworker can do?', 'What’s the most annoying thing a roommate can do?'],
+  ['What’s your biggest pet peeve?', 'What’s the biggest red flag on a first date?'],
+  ['What’s your hidden talent?', 'What skill would you put on a fake résumé?'],
+  ['What would you do with an extra hour every day?', 'What would you do if you were invisible for a day?'],
+  ['What’s the worst gift you’ve ever received?', 'What’s the worst thing to bring to a potluck?'],
+  ['What app do you open first in the morning?', 'What app would you delete forever if you had to?'],
+  ['What’s a smell you secretly love?', 'What’s a smell that reminds you of childhood?'],
+  ['What’s something you’re weirdly good at?', 'What would your superpower be?'],
+  ['What’s the best way to spend a Sunday?', 'What would you do on your last day on Earth?'],
+  ['What’s a word you can’t stand hearing?', 'What would you name your boat?'],
+  ['What’s the best movie of all time?', 'What movie would you show an alien to explain humans?'],
+  ['What’s the most overrated TV show?', 'What show would you binge if you were stuck in a hospital bed?'],
+  ['What song would you walk out to in a boxing match?', 'What song would you play to clear out a party?'],
+  ['What animal would you be?', 'What animal would you want to fight?'],
+  ['What would your wrestling name be?', 'What would you name your first kid?'],
+  ['What’s the worst job you can imagine?', 'What job would you be secretly great at?'],
+  ['What’s a dealbreaker in a relationship?', 'What would get you fired on day one?'],
+  ['What’s the most embarrassing thing to get caught doing?', 'What would you do if no one was watching?'],
+  ['What’s the best decade for music?', 'What decade would you time-travel to?'],
+  ['What’s the best car brand?', 'What car would you buy to have a midlife crisis?'],
+  ['What would you rather have: money, fame, or power?', 'What matters most in a friend: loyalty, humor, or honesty?'],
+  // a few numbers
   ['How many hours of sleep do you need?', 'How many hours could you play video games straight?'],
   ['What’s a good age to get married?', 'What’s a good age to retire?'],
-  ['How many close friends do you have?', 'How many pairs of shoes do you own?'],
   ['How much would you spend on a first date?', 'How much would you spend on sneakers?'],
   ['How many push-ups can you do?', 'How many tacos could you eat in one sitting?'],
-  ['How many minutes is the perfect shower?', 'How many minutes is the perfect nap?'],
-  ['How many countries have you been to?', 'How many times have you moved homes?'],
-  ['What time do you wake up on weekends?', 'What time is too late to text someone?'],
   ['How many kids do you want?', 'How many pets do you want?'],
-  ['How much is too much for rent per month?', 'How much is too much for a used car?'],
-  ['Best city to live in?', 'Best city to visit for a weekend?'],
-  ['Most overrated food?', 'Food you could eat every day?'],
-  ['How many hours a day are you on your phone?', 'How many hours a week do you work out?'],
-  ['Who’s the best rapper alive?', 'Who’s the best athlete alive?'],
+  ['Rate your cooking out of 10.', 'Rate your dance moves out of 10.'],
+  ['How many times do you check your phone per hour?', 'How many times a week do you eat out?'],
 ];
 
 export const TIER_LISTS: { topic: string; items: string[] }[] = [
@@ -42,15 +88,6 @@ export const TIER_LISTS: { topic: string; items: string[] }[] = [
   { topic: 'Pizza toppings', items: ['Pepperoni', 'Pineapple', 'Mushroom', 'Olives', 'Sausage', 'Jalapeño', 'Onion', 'Chicken', 'Anchovies', 'Bell pepper'] },
   { topic: 'Holidays', items: ['Thanksgiving', 'Christmas', 'Eid', 'New Year’s Eve', 'Halloween', 'July 4th', 'Valentine’s Day', 'Birthday', 'Super Bowl Sunday', 'Labor Day'] },
   { topic: 'Chores', items: ['Dishes', 'Laundry', 'Vacuuming', 'Cleaning the bathroom', 'Taking out trash', 'Grocery shopping', 'Making the bed', 'Cooking', 'Mowing the lawn', 'Folding clothes'] },
-];
-
-export const FAST_MONEY: string[] = [
-  'Name something people do right after waking up', 'Name a reason you’d be late to work', 'Name something you bring to the beach',
-  'Name a food people eat with their hands', 'Name a famous superhero', 'Name something people are afraid of',
-  'Name a place people go on a first date', 'Name something you find in a wallet', 'Name a popular pizza topping',
-  'Name a sport played with a ball', 'Name something people lose all the time', 'Name a job that requires a uniform',
-  'Name an animal at the zoo', 'Name something people do at a wedding', 'Name a reason someone might not sleep',
-  'Name something people put on a burger', 'Name a famous city in Europe', 'Name something you do at the gym',
 ];
 
 export const BLIND_RANKING: { topic: string; items: string[] }[] = [
@@ -153,12 +190,30 @@ export const TELL_TWISTS: string[] = [
 ];
 
 /** Launch prices in USD (base model, at release). */
-export const PRICES: { item: string; price: number }[] = [
-  { item: 'Original Apple Macintosh (1984)', price: 2495 }, { item: 'First iPhone, 4 GB (2007)', price: 499 }, { item: 'PlayStation 5 with disc drive (2020)', price: 499 },
-  { item: 'Nintendo Switch (2017)', price: 299.99 }, { item: 'Xbox 360 (2005)', price: 399 }, { item: 'PlayStation 2 (2000)', price: 299 },
-  { item: 'Nintendo 64 (1996)', price: 199 }, { item: 'Original Game Boy (1989)', price: 89.99 }, { item: 'Original iPod (2001)', price: 399 },
-  { item: 'Apple Vision Pro (2024)', price: 3499 }, { item: 'Apple Watch Sport (2015)', price: 349 }, { item: 'Original AirPods (2016)', price: 159 },
-  { item: 'Ford Model T (1908)', price: 850 }, { item: 'Original iPad, Wi-Fi 16 GB (2010)', price: 499 }, { item: 'Nintendo Wii (2006)', price: 249.99 },
+/** Guess the Price: US launch prices. `wiki` is the Wikipedia article whose photo is shown (via /api/image). */
+export const PRICES: { item: string; price: number; wiki: string }[] = [
+  { item: 'Original Apple Macintosh (1984)', price: 2495, wiki: 'Macintosh 128K' },
+  { item: 'First iPhone, 4 GB (2007)', price: 499, wiki: 'iPhone (1st generation)' },
+  { item: 'PlayStation 5 with disc drive (2020)', price: 499, wiki: 'PlayStation 5' },
+  { item: 'Nintendo Switch (2017)', price: 299.99, wiki: 'Nintendo Switch' },
+  { item: 'Xbox 360 (2005)', price: 399, wiki: 'Xbox 360' },
+  { item: 'PlayStation 2 (2000)', price: 299, wiki: 'PlayStation 2' },
+  { item: 'Nintendo 64 (1996)', price: 199, wiki: 'Nintendo 64' },
+  { item: 'Original Game Boy (1989)', price: 89.99, wiki: 'Game Boy' },
+  { item: 'Original iPod (2001)', price: 399, wiki: 'iPod Classic' },
+  { item: 'Apple Vision Pro (2024)', price: 3499, wiki: 'Apple Vision Pro' },
+  { item: 'Apple Watch Sport (2015)', price: 349, wiki: 'Apple Watch (1st generation)' },
+  { item: 'Original AirPods (2016)', price: 159, wiki: 'AirPods' },
+  { item: 'Ford Model T (1908)', price: 850, wiki: 'Ford Model T' },
+  { item: 'Original iPad, Wi-Fi 16 GB (2010)', price: 499, wiki: 'iPad (1st generation)' },
+  { item: 'Nintendo Wii (2006)', price: 249.99, wiki: 'Wii' },
+  { item: 'Motorola DynaTAC 8000X, the first cell phone (1983)', price: 3995, wiki: 'Motorola DynaTAC' },
+  { item: 'DeLorean DMC-12 (1981)', price: 25000, wiki: 'DeLorean DMC-12' },
+  { item: 'Segway PT (2001)', price: 4950, wiki: 'Segway' },
+  { item: 'Apple Watch Edition in 18k gold (2015)', price: 10000, wiki: 'Apple Watch (1st generation)' },
+  { item: 'Mac Pro, base model (2019)', price: 5999, wiki: 'Mac Pro' },
+  { item: 'Tesla Roadster (2008)', price: 109000, wiki: 'Tesla Roadster (first generation)' },
+  { item: 'Tesla Cybertruck Cyberbeast (2023)', price: 99990, wiki: 'Tesla Cybertruck' },
 ];
 
 export const TOPICS_EVERGREEN: string[] = [
