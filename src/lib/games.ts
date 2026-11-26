@@ -26,7 +26,7 @@ export const GAMES: Game[] = [
   { id: 'blind-ranking', code: 'G4', name: 'Blind ranking', line: 'Rank 1–5 without seeing what’s next.', min: 1, boardOnRecording: true,
     rules: { 1: 'Rank alone.', 2: 'Side by side, compare at the end.', 3: 'Three rankings revealed together.' } },
   { id: 'auction-draft', code: 'G17', name: 'Auction draft', line: '$20 each. Bid your way to the best 5.', min: 2, boardOnRecording: true,
-    rules: { 2: 'Each has $20 to bid on items for the perfect list of 5; poll picks the best list.', 3: 'Same with three bidders; vote picks the best list.' } },
+    rules: { 2: 'Each has $20 to build the perfect list of 5. Only the host sees what’s left and puts items up one at a time. Live: bid out loud (or type a bid); the winner enters what they paid. Blind (host toggle): everyone locks one secret bid, highest wins. Vote picks the best list.', 3: 'Same with three bidders. Live: bid out loud or type a bid; the winner enters what they paid. Blind: one secret bid each, highest wins. Vote picks the best list.' } },
   { id: 'snake-draft', code: 'G5', name: 'Snake draft', line: 'Take turns picking the best list.', min: 2, boardOnRecording: true,
     rules: { 2: '1v1 snake draft (1-2, 2-1, …).', 3: 'Three-team snake draft (1-2-3, 3-2-1, …).' } },
   { id: 'most-likely-to', code: 'G6', name: 'Most Likely To', line: 'Point at who fits.', min: 3, boardOnRecording: false,

@@ -501,7 +501,7 @@ function Studio({ params }: { params: Promise<{ session: string }> }) {
                         {ok ? <>
                           <button className="btn btn-ghost" title={on ? 'Recording shows the game board — click for faces only' : 'Recording shows faces only — click to show the board'} aria-label="What the recording shows"
                             style={{ minHeight: 30, padding: '0 8px', fontSize: 12 }} onClick={() => store.set(`board.${g.id}`, !on)}>{on ? '▣ Board' : '☺ Faces'}</button>
-                          <button className="btn btn-primary" style={{ minHeight: 32 }} onClick={() => { startGame(store, g.id, gamePeople); setTab(null); }}>{game?.id === g.id ? 'Restart' : 'Play'}</button>
+                          <button className="btn btn-primary" style={{ minHeight: 32 }} onClick={() => { startGame(store, g.id, gamePeople, { host: me }); setTab(null); }}>{game?.id === g.id ? 'Restart' : 'Play'}</button>
                         </> : <span className="pill">{g.min}+ players</span>}
                       </div>
                       {ok && <span className="muted" style={{ fontSize: 13 }}>{g.line}</span>}

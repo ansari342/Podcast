@@ -82,6 +82,13 @@ function captionBody(s: SharedStore, people: Person[]): { title: string; big: st
     case 'fast-money': return m.phase === 'ask'
       ? { title: game.name, big: `Question ${m.i + 1} of ${m.qs.length}`, lines: [`${name(m.asker)} is asking — the others can’t hear`] }
       : { title: game.name, big: '', lines: [], table: fmTable(s, P, m, name) };
+    case 'auction-draft': {
+      const a = auctionState(s, P, m, people.map((p) => p.identity));
+      const lists = people.map((p) => `${name(p.identity)} ($${a.left(p.identity)} left): ${a.items(p.identity).map((w) => `${w.item} $${w.price}`).join(' · ') || '—'}`);
+      const big = a.cur != null ? `Up for auction: ${m.pool[a.cur]}` : a.last ? `${name(a.last.by)} got ${a.last.item} for $${a.last.price}` : m.cat;
+      const sealed = a.cur != null && m.blind ? [`Sealed bids in: ${Object.keys(a.sealed).length}/${a.bidders.length}`] : [];
+      return { title: `${game.name}: ${m.cat}${m.blind ? ' (blind)' : ''}`, big, lines: [...sealed, ...lists] };
+    }
     case 'trivia': return { title: game.name, big: m.q, lines: rev ? [m.a] : [] };
     case 'guess-the-price': return { title: game.name, big: m.item, lines: rev ? [`$${m.price.toLocaleString()}`] : [], image: m.wiki ? imageUrl(m.wiki) : undefined };
     case 'most-likely-to': case 'red-green-flag': return { title: game.name, big: m.prompt, lines: [] };
@@ -119,7 +126,9 @@ export function GameBoard({ store, me, people, isHost }: { store: SharedStore; m
   const who = ids(people);
   const name = (id: string) => people.find((p) => p.identity === id)?.name ?? 'Someone';
   const others = people.filter((p) => p.identity !== me);
-  const again = () => startGame(store, g.id, people);
+  // The host is whoever pressed Play (kept across rounds); older games without one fall back to the isHost prop.
+  const amHost = m.host ? m.host === me : isHost;
+  const again = () => startGame(store, g.id, people, { host: m.host, ...(g.id === 'auction-draft' ? { blind: !!m.blind } : {}) });
   const revealed = !!get('revealed');
   const reveal = () => set({ revealed: true });
   const Again = <button className="btn btn-primary" onClick={again}>Next round</button>;
@@ -222,31 +231,10 @@ export function GameBoard({ store, me, people, isHost }: { store: SharedStore; m
       </>); break;
     }
     case 'auction-draft': {
-      const won = under<{ by: string; price: number }>('won.');
-      const spent = (id: string) => Object.values(won).filter((w) => w.by === id).reduce((a, w) => a + w.price, 0);
-      const count = (id: string) => Object.values(won).filter((w) => w.by === id).length;
-      const cur = get<number>('cur');
-      const bids = cur !== undefined ? under<number>(`bid.${cur}.`) : {};
-      const top = Object.entries(bids).sort((a, b) => b[1] - a[1] || who.indexOf(a[0]) - who.indexOf(b[0]))[0];
-      const high = top?.[1] ?? 0;
-      const left = 20 - spent(me); const full = count(me) >= 5;
-      const maxBid = left - Math.max(0, 4 - count(me)); // keep $1 for each empty slot
-      const done = people.every((p) => count(p.identity) >= 5) || m.pool.every((_: string, i: number) => won[String(i)]);
+      const a = auctionState(store, P, m, who);
       body = (<>
-        <Big>{m.cat}</Big>
-        <span className="muted">$20 each · 5 items · You have ${left} and {count(me)}/5</span>
-        {!done && cur === undefined && (<><span>Pick the next item to auction</span><Row>{m.pool.map((it: string, i: number) => !won[String(i)] && <button key={i} className="btn" onClick={() => set({ cur: i })}>{it}</button>)}</Row></>)}
-        {!done && cur !== undefined && (<><Secret>{m.pool[cur]}</Secret>
-          <span>{top ? `${name(top[0])} leads at $${high}` : 'No bids yet'}</span>
-          {!full && <Row>{[1, 2, 5].map((n) => <button key={n} className="btn" disabled={high + n > maxBid} onClick={() => set({ [`bid.${cur}.${me}`]: high + n })}>${high + n}</button>)}</Row>}
-          <button className="btn btn-primary" disabled={!top} onClick={() => set({ [`won.${cur}`]: { by: top![0], price: high }, cur: null })}>Sold</button></>)}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${people.length}, minmax(0,1fr))`, gap: 12, width: '100%' }}>
-          {people.map((p) => (<div key={p.identity} className="panel" style={{ padding: 10, background: 'var(--panel-2)' }}>
-            <strong>{p.isLocal ? 'You' : p.name}</strong> <span className="muted">${20 - spent(p.identity)} left</span>
-            {Object.entries(won).filter(([, w]) => w.by === p.identity).map(([i, w]) => <div key={i} style={{ fontSize: 14 }}>{m.pool[Number(i)]} · ${w.price}</div>)}
-          </div>))}
-        </div>
-        {done && (<><span>Best list?</span>{VotePeople({ k: "vote",})}{voted('vote') > 0 && <span className="muted">{Object.entries(tally('vote')).map(([id, n]) => `${name(id)} ${n}`).join(' · ')}</span>}{Again}</>)}
+        <Auction store={store} P={P} m={m} me={me} people={people} name={name} amHost={amHost} setM={setM} />
+        {a.done && (<><span>Best list?</span>{VotePeople({ k: "vote",})}{voted('vote') > 0 && <span className="muted">{Object.entries(tally('vote')).map(([id, n]) => `${name(id)} ${n}`).join(' · ')}</span>}{Again}</>)}
       </>); break;
     }
     case 'snake-draft': {
@@ -390,6 +378,133 @@ function AnswerBox({ cur, placeholder, numeric, onLock }: { cur?: string; placeh
       <input className="input" autoFocus inputMode={numeric ? 'decimal' : undefined} placeholder={placeholder} value={v} onChange={(e) => setV(e.target.value)} style={{ width: 260 }} />
       <button className="btn btn-primary">Lock in</button>
     </form>);
+}
+
+/* ---------------- Auction draft (G17) ---------------- */
+
+const BUDGET = 20, SLOTS = 5;
+type Won = { by: string; price: number };
+
+/** Shared auction facts, used by the board and the episode-video caption. Keys under g.<round>.:
+ *  cur (index of the item up now), won.<i> = {by, price}, bid.<i>.<id> (live bids, public),
+ *  sb.<i>.<id> (blind sealed bids, hidden until the host reveals), last = most recent sale. */
+function auctionState(s: SharedStore, P: string, m: M, who: string[]) {
+  const won = s.under<Won>(P + 'won.');
+  const mine = (id: string) => Object.entries(won).filter(([, w]) => w.by === id);
+  const spent = (id: string) => mine(id).reduce((a, [, w]) => a + w.price, 0);
+  const count = (id: string) => mine(id).length;
+  const left = (id: string) => BUDGET - spent(id);
+  /** Most you can bid and still afford $1 for each empty slot after this one. */
+  const maxBid = (id: string) => left(id) - Math.max(0, SLOTS - 1 - count(id));
+  const items = (id: string) => mine(id).map(([i, w]) => ({ i, item: m.pool[Number(i)] as string, price: w.price }));
+  const cur = s.get<number | null>(P + 'cur') ?? null;
+  const bidders = who.filter((id) => count(id) < SLOTS);
+  const live = cur != null ? s.under<number>(`${P}bid.${cur}.`) : {};
+  const sealed = cur != null ? s.under<number>(`${P}sb.${cur}.`) : {};
+  const top = Object.entries(live).sort((a, b) => b[1] - a[1])[0] as [string, number] | undefined;
+  const last = s.get<{ item: string; by: string; price: number; bids?: Record<string, number> } | null>(P + 'last') ?? null;
+  const done = who.length > 0 && (who.every((id) => count(id) >= SLOTS) || (m.pool as string[]).every((_, i) => won[String(i)]));
+  return { won, spent, count, left, maxBid, items, cur, bidders, live, sealed, top, last, done };
+}
+
+function Auction({ store, P, m, me, people, name, amHost, setM }: {
+  store: SharedStore; P: string; m: M; me: string; people: Person[]; name: (id: string) => string; amHost: boolean; setM: (patch: M) => void;
+}) {
+  const [amt, setAmt] = useState('');
+  const [claim, setClaim] = useState('');
+  const [err, setErr] = useState('');
+  const who = people.map((p) => p.identity);
+  const a = auctionState(store, P, m, who);
+  const set = (kv: Record<string, unknown>) => store.setMany(Object.fromEntries(Object.entries(kv).map(([k, v]) => [P + k, v])));
+  const cur = a.cur; const item: string | undefined = cur != null ? m.pool[cur] : undefined;
+  const full = a.count(me) >= SLOTS; const max = a.maxBid(me);
+  const host: string | undefined = m.host;
+  const check = (raw: string, min = 1): number | null => {
+    const n = Math.floor(Number(raw.replace(/[$,\s]/g, '')));
+    if (!raw.trim() || !Number.isFinite(n)) { setErr('Enter a dollar amount'); return null; }
+    if (n < min) { setErr(`At least $${min}`); return null; }
+    if (n > max) { setErr(`You can go up to $${max} (you need $1 for each empty slot)`); return null; }
+    setErr(''); return n;
+  };
+  const sell = (by: string, price: number, bids?: Record<string, number>) => {
+    set({ [`won.${cur}`]: { by, price }, cur: null, last: { item, by, price, ...(bids ? { bids } : {}) } });
+    setAmt(''); setClaim(''); setErr('');
+  };
+  const putUp = (i: number) => { set({ cur: i, last: null, tie: null }); setAmt(''); setClaim(''); setErr(''); };
+
+  // Blind: everyone still bidding locks one sealed bid; the host reveals; highest wins and pays their bid.
+  const sealedIn = Object.keys(a.sealed).length;
+  const allSealed = a.bidders.length > 0 && a.bidders.every((id) => a.sealed[id] !== undefined);
+  const revealBlind = () => {
+    const ranked = Object.entries(a.sealed).sort((x, y) => y[1] - x[1]);
+    if (!ranked.length) return;
+    const tied = ranked.filter(([, v]) => v === ranked[0][1]);
+    if (tied.length > 1) { set({ ...Object.fromEntries(Object.keys(a.sealed).map((id) => [`sb.${cur}.${id}`, null])), tie: { item, ids: tied.map(([id]) => id), price: ranked[0][1] } }); return; }
+    set({ tie: null }); sell(ranked[0][0], ranked[0][1], a.sealed);
+  };
+  const tie = store.get<{ item: string; ids: string[]; price: number } | null>(P + 'tie') ?? null;
+
+  const input = (v: string, on: (v: string) => void, ph: string) =>
+    <input className="input" inputMode="numeric" placeholder={ph} value={v} onChange={(e) => { on(e.target.value); setErr(''); }} style={{ width: 120, textAlign: 'center' }} />;
+
+  return (<>
+    <Big>{m.cat}</Big>
+    <span className="muted">${BUDGET} each · {SLOTS} items · {m.blind ? 'Blind auction' : 'Live auction'}{full ? ' · Your list is full' : ` · You have $${a.left(me)} and ${a.count(me)}/${SLOTS}`}</span>
+    {amHost && !a.done && cur == null && (
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer' }}>
+        <input type="checkbox" checked={!!m.blind} onChange={(e) => setM({ blind: e.target.checked })} />
+        Blind auction <span className="muted">(everyone bids once in secret, highest wins)</span>
+      </label>)}
+
+    {a.last && cur == null && <Good>{name(a.last.by)} got {a.last.item} for ${a.last.price}{a.last.bids ? ` · bids: ${Object.entries(a.last.bids).map(([id, v]) => `${name(id)} $${v}`).join(', ')}` : ''}</Good>}
+
+    {/* Picking the next item: only the host sees what's left in the pool. */}
+    {!a.done && cur == null && (amHost
+      ? <><span>Pick the next item to auction <span className="muted">(only you can see this list)</span></span>
+          <Row>{(m.pool as string[]).map((it, i) => !a.won[String(i)] && <button key={i} className="btn" onClick={() => putUp(i)}>{it}</button>)}</Row></>
+      : <span className="muted">{host ? name(host) : 'The host'} is picking the next item…</span>)}
+
+    {!a.done && cur != null && (<>
+      <Secret>{item}</Secret>
+      {!m.blind ? (<>
+        <span>{a.top ? `${name(a.top[0])} leads at $${a.top[1]}` : 'Bid out loud or type a bid'}</span>
+        {Object.keys(a.live).length > 0 && <span className="muted" style={{ fontSize: 13 }}>{Object.entries(a.live).sort((x, y) => y[1] - x[1]).map(([id, v]) => `${name(id)} $${v}`).join(' · ')}</span>}
+        {!full && (<>
+          <form onSubmit={(e) => { e.preventDefault(); const n = check(amt, (a.top?.[1] ?? 0) + 1); if (n !== null) { set({ [`bid.${cur}.${me}`]: n }); setAmt(''); } }} style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            {input(amt, setAmt, `$ up to ${max}`)}<button className="btn">Bid</button>
+          </form>
+          <form onSubmit={(e) => { e.preventDefault(); const n = check(claim || (a.top && a.top[0] === me ? String(a.top[1]) : '')); if (n !== null) sell(me, n); }} style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
+            <span className="muted" style={{ fontSize: 13 }}>Won it? What did you pay:</span>
+            {input(claim, setClaim, a.top && a.top[0] === me ? `$${a.top[1]}` : '$')}<button className="btn btn-primary">I won it</button>
+          </form>
+        </>)}
+      </>) : (<>
+        {tie && tie.item === item && <span style={{ color: 'var(--warn)' }}>Tie at ${tie.price} between {tie.ids.map(name).join(' and ')} — bid again</span>}
+        {!full && (a.sealed[me] !== undefined
+          ? <span className="muted">Your sealed bid: <strong style={{ color: 'var(--text)' }}>${a.sealed[me]}</strong></span>
+          : <form onSubmit={(e) => { e.preventDefault(); const n = check(amt); if (n !== null) { set({ [`sb.${cur}.${me}`]: n }); setAmt(''); } }} style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              {input(amt, setAmt, `$ up to ${max}`)}<button className="btn btn-primary">Lock bid</button>
+            </form>)}
+        <span className="muted" style={{ fontSize: 13 }}>{a.bidders.map((id) => `${name(id)} ${a.sealed[id] !== undefined ? '✓' : '…'}`).join(' · ')}</span>
+        {amHost && <button className="btn btn-primary" disabled={!allSealed && sealedIn === 0} onClick={revealBlind}>{allSealed ? 'Reveal bids' : `Reveal now (${sealedIn}/${a.bidders.length} in)`}</button>}
+      </>)}
+      {err && <span style={{ color: 'var(--rec)', fontSize: 13 }}>{err}</span>}
+      {amHost && <button className="btn btn-ghost" style={{ fontSize: 12, minHeight: 28 }} onClick={() => set({ cur: null, tie: null })}>Put it back</button>}
+    </>)}
+
+    {/* Running list of what everyone has. */}
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${people.length}, minmax(0,1fr))`, gap: 12, width: '100%' }}>
+      {people.map((p) => { const mine = a.items(p.identity); return (
+        <div key={p.identity} className="panel" style={{ padding: 10, background: 'var(--panel-2)', textAlign: 'left' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}><strong>{p.identity === me ? 'You' : p.name}</strong><span className="muted">${a.left(p.identity)} left · {mine.length}/{SLOTS}</span></div>
+          {Array.from({ length: SLOTS }, (_, k) => { const w = mine[k]; return (
+            <div key={k} style={{ fontSize: 14, display: 'flex', justifyContent: 'space-between', gap: 6, opacity: w ? 1 : 0.4 }}>
+              <span>{k + 1}. {w ? w.item : '—'}</span>
+              {w && <span>${w.price}{amHost && <button className="btn btn-ghost" title="Undo this sale" aria-label="Undo this sale" style={{ minHeight: 20, padding: '0 4px', fontSize: 12 }} onClick={() => set({ [`won.${w.i}`]: null, last: null })}>×</button>}</span>}
+            </div>); })}
+        </div>); })}
+    </div>
+  </>);
 }
 
 /* ---------------- Fast Money (G3) ---------------- */

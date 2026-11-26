@@ -38,6 +38,13 @@ Live: **https://theboys.space** · Branch: `build/m1` (production; every push de
 - **Phone companion** (S14): on a phone, home and the green room show “Join companion” when people are in a call (`/api/companion` lists rooms/people via LiveKit server API). `/companion/<room>`: pick who you are, front/back camera, “Record only” or “Show live” (PiP on that person’s tile). The phone joins as `cmp_<identity>__x` (never a seat), follows Record/Pause/Stop, records its camera as track `phone` into that person’s folder (laptops publish `uid.<identity>` so the folder matches). Phone browsers can’t capture their own screen, so it’s the phone camera.
 - **Not verified here**: the new set and phone companion against the real LiveKit call (the test sandbox can’t reach LiveKit or the model CDN). The set pipeline was checked headless with a locally served model and a real face clip; the games in test mode end to end.
 
+## Added 2026-11-26 — Auction draft rework
+- **Host**: whoever presses Play is stored as `m.host` (kept on Next round); `amHost` in `GameBoard`. Only the host sees the pool and puts items up (`cur`), can undo a sale (× next to a price) or put an item back.
+- **Live** (default): bid out loud or type an amount (`bid.<i>.<id>`, must beat the leader, capped so $1 stays for each empty slot). The winner enters what they paid and taps “I won it” → `won.<i>`, deducted from their $20.
+- **Blind** (host checkbox, `m.blind`): everyone still bidding locks one sealed bid (`sb.<i>.<id>`, hidden — only ✓ shown); host reveals; highest wins and pays their bid; a tie clears the bids for a rebid.
+- **Running list**: 5 slots per person with prices and $ left, on the board and in the episode-video caption.
+- Verified with 3 local tabs (live bid → claim, blind reveal, budget cap, guests can’t see the pool).
+
 ## Instinct agenda (P1)
 Instinct emails the agenda → inbound-email service (Postmark/CloudMailin) → `POST /api/agenda?token=<AGENDA_TOKEN>` → saved to R2 `agenda/latest.json`. Studio Plan shows "Agenda from <date> · Use it" and auto-applies a fresh one (≤3 days) if the plan hasn't been touched. Parser strips bullets, numbers, times, durations, greetings and signatures.
 
